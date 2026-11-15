@@ -1,0 +1,28 @@
+# Live orders on a MetaTrader DEMO account through MetaApi.
+# Needs: METAAPI_TOKEN and METAAPI_ACCOUNT_ID env vars (or account_id below).
+# The broker refuses to trade if the account is not a demo account.
+bot_name: breakout-metaapi-demo
+timeframe: 1d
+strategy:
+  name: breakout
+  params:
+    entry_period: 20           # break of the prior 20-bar high/low
+    exit_period: 10            # exit on the prior 10-bar opposite channel
+    atr_period: 14
+    stop_atr_mult: 2.0
+    allow_short: true
+risk:
+  risk_per_trade: 0.01         # lose at most 1% of equity if the stop is hit
+  max_leverage: 1.0            # position notional <= 1x equity
+  max_position_btc: 0.5
+  daily_loss_limit: 0.03       # stop trading for the UTC day after -3%
+  flatten_on_daily_limit: true
+  max_trades_per_day: 6
+broker:
+  type: metaapi
+  allow_real_money: false      # keep false: demo only
+  metaapi:
+    account_id: ""             # your MetaApi account id (or env METAAPI_ACCOUNT_ID)
+    symbol: BTCUSD             # broker symbol name; may be BTCUSD., BTCUSDm, etc.
+    magic: 20261002           # unique per bot so bots don't touch each other's trades
+    base_url: https://mt-client-api-v1.new-york.agiliumtrade.ai   # match your account's region

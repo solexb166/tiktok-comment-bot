@@ -1,0 +1,32 @@
+# Live orders on a MetaTrader DEMO account through MetaApi.
+# Needs: METAAPI_TOKEN and METAAPI_ACCOUNT_ID env vars (or account_id below).
+# The broker refuses to trade if the account is not a demo account.
+bot_name: mean_reversion-metaapi-demo
+timeframe: 4h
+strategy:
+  name: mean_reversion
+  params:
+    bb_period: 20
+    bb_std: 2.0
+    rsi_period: 14
+    rsi_oversold: 30
+    rsi_overbought: 70
+    atr_period: 14
+    stop_atr_mult: 2.0
+    allow_short: true
+    trend_filter_period: 200   # only buy dips above the 200-bar SMA, sell rips below it (0 = off)
+risk:
+  risk_per_trade: 0.01         # lose at most 1% of equity if the stop is hit
+  max_leverage: 1.0            # position notional <= 1x equity
+  max_position_btc: 0.5
+  daily_loss_limit: 0.03       # stop trading for the UTC day after -3%
+  flatten_on_daily_limit: true
+  max_trades_per_day: 6
+broker:
+  type: metaapi
+  allow_real_money: false      # keep false: demo only
+  metaapi:
+    account_id: ""             # your MetaApi account id (or env METAAPI_ACCOUNT_ID)
+    symbol: BTCUSD             # broker symbol name; may be BTCUSD., BTCUSDm, etc.
+    magic: 20261001           # unique per bot so bots don't touch each other's trades
+    base_url: https://mt-client-api-v1.new-york.agiliumtrade.ai   # match your account's region

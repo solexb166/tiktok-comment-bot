@@ -1,0 +1,21 @@
+# Paper trading (simulated fills on real Coinbase prices). Safe to run anywhere.
+bot_name: breakout-paper
+timeframe: 1d
+strategy:
+  name: breakout
+  params:
+    entry_period: 20           # break of the prior 20-bar high/low
+    exit_period: 10            # exit on the prior 10-bar opposite channel
+    atr_period: 14
+    stop_atr_mult: 2.0
+    allow_short: true
+risk:
+  risk_per_trade: 0.01         # lose at most 1% of equity if the stop is hit
+  max_leverage: 1.0            # position notional <= 1x equity
+  max_position_btc: 0.5
+  daily_loss_limit: 0.03       # stop trading for the UTC day after -3%
+  flatten_on_daily_limit: true
+  max_trades_per_day: 6
+broker:
+  type: paper
+  paper: {initial_equity: 10000, fee_bps: 6, slippage_bps: 2}

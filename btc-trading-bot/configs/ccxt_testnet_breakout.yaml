@@ -1,0 +1,16 @@
+# Exchange TESTNET via CCXT (spot, long-only). Needs CCXT_API_KEY / CCXT_SECRET for the testnet.
+# Binance spot testnet keys: https://testnet.binance.vision
+bot_name: breakout-ccxt-testnet
+timeframe: 4h
+strategy:
+  name: breakout
+  params: {entry_period: 20, exit_period: 10, atr_period: 14, stop_atr_mult: 2.0, allow_short: false}
+risk:
+  risk_per_trade: 0.01
+  max_leverage: 1.0
+  max_position_btc: 0.05
+  daily_loss_limit: 0.03
+broker:
+  type: ccxt
+  allow_real_money: false
+  ccxt: {exchange: binance, symbol: BTC/USDT, sandbox: true}
