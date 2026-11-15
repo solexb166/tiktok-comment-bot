@@ -1,0 +1,9 @@
+# Environment A variant: margin ~ 0 for every instrument. Exposure is then limited only by
+# equity, costs, death and the numerical range of the action space. Labelled experiment.
+include: [environments/A_fractional.yaml]
+name: A_unlimited_margin
+margin:
+  account_leverage: {value: inf, status: assumption, note: "experiment: unlimited margin"}
+instrument_overrides:
+  BTCUSD: {fixed_margin_rate: 0.0}
+  NAS100: {fixed_margin_rate: 0.0}

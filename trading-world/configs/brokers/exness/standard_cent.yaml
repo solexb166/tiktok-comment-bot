@@ -1,0 +1,69 @@
+# Exness Standard Cent account facts. Every broker field carries a status.
+# Sources: docs/ARCHITECTURE.md §7 and Sources list (retrieved 2026-11-15 via search extracts).
+account_currency: {value: USC, status: verified, source: "Standard Cent: balance in US cents"}
+currency_per_usd: {value: 100.0, status: verified}
+margin_call_level: {value: 0.6, status: verified, source: "Margin call and stop out levels by account type"}
+nbp: {value: true, status: verified, source: "Negative Balance Protection article"}
+stop_out_order: {value: most_unprofitable, status: unverified, note: "U7: third-party only"}
+instruments:
+  - symbol: EURUSDc
+    base: EUR
+    quote: USD
+    asset_class: fx
+    account_type: exness_standard_cent
+    contract_size: {value: 1000.0, status: verified, source: "1 cent lot = 0.01 standard lot"}
+    min_lot: {value: 0.01, status: verified}
+    lot_step: {value: 0.01, status: unverified, note: "step not stated explicitly"}
+    max_lots: {value: 200, status: verified}
+    margin_mode: {value: leverage, status: verified, source: "Margin article: FX majors leverage-based"}
+    commission_per_lot: {value: 0.0, status: verified}
+    swap_long: {value: null, status: unknown, note: "U8"}
+    swap_short: {value: null, status: unknown, note: "U8"}
+    swap_free: {value: null, status: unknown, note: "U8: majors swap-free, eligibility unclear"}
+    triple_swap_weekday: {value: 2, status: verified, source: "About swap: FX triple on Wednesday"}
+  - symbol: GBPUSDc
+    base: GBP
+    quote: USD
+    asset_class: fx
+    account_type: exness_standard_cent
+    contract_size: {value: 1000.0, status: verified}
+    min_lot: {value: 0.01, status: verified}
+    lot_step: {value: 0.01, status: unverified}
+    max_lots: {value: 200, status: verified}
+    margin_mode: {value: leverage, status: verified}
+    commission_per_lot: {value: 0.0, status: verified}
+    swap_long: {value: null, status: unknown}
+    swap_short: {value: null, status: unknown}
+    swap_free: {value: null, status: unknown}
+    triple_swap_weekday: {value: 2, status: verified}
+  - symbol: USDJPYc
+    base: USD
+    quote: JPY
+    asset_class: fx
+    account_type: exness_standard_cent
+    contract_size: {value: 1000.0, status: verified}
+    min_lot: {value: 0.01, status: verified}
+    lot_step: {value: 0.01, status: unverified}
+    max_lots: {value: 200, status: verified}
+    margin_mode: {value: leverage, status: verified}
+    commission_per_lot: {value: 0.0, status: verified}
+    swap_long: {value: null, status: unknown}
+    swap_short: {value: null, status: unknown}
+    swap_free: {value: null, status: unknown}
+    triple_swap_weekday: {value: 2, status: verified}
+  - symbol: XAUUSDc
+    base: XAU
+    quote: USD
+    asset_class: metal
+    account_type: exness_standard_cent
+    contract_size: {value: 1.0, status: unverified, note: "U4: derived from 100 oz standard contract"}
+    min_lot: {value: 0.01, status: verified}
+    lot_step: {value: 0.01, status: unverified}
+    max_lots: {value: 200, status: verified}
+    margin_mode: {value: leverage, status: verified}
+    commission_per_lot: {value: 0.0, status: verified}
+    swap_long: {value: null, status: unknown}
+    swap_short: {value: null, status: unknown}
+    swap_free: {value: false, status: unverified}
+    triple_swap_weekday: {value: 2, status: unverified}
+# BTCUSDc and USTECc are deliberately absent: availability on Cent is conflicting (U2, U3).

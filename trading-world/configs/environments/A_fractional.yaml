@@ -1,0 +1,33 @@
+# Environment A: fractional training. All six instruments, $10 start, NO exposure ceiling.
+# Broker mechanics use an "A-reference" schedule modelled on documented Exness retail
+# conditions WITHOUT Unlimited leverage. Values are 'assumption' unless verified; that is
+# allowed in A (decision: isolate unresolved specs, continue with explicit assumptions).
+name: A_fractional
+environment: A
+initial_equity_usd: 10.0
+death_fraction: 0.05                       # experimental survival criterion (model)
+account_currency: {value: USD, status: assumption}
+currency_per_usd: {value: 1.0, status: assumption}
+stop_out_level: {value: 0.0, status: assumption, source: "Exness default 0% stop-out (verified for Exness global) used as A reference"}
+margin_call_level: {value: 0.6, status: assumption, source: "Exness 60% margin call used as A reference"}
+nbp: {value: false, status: assumption, note: "A has no negative balance protection (decision 4)"}
+stop_out_order: {value: most_unprofitable, status: assumption}
+min_trade_notional_usd: 0.001              # numerical threshold (model)
+spread_multiplier: 1.0
+slippage: {base_bps: 0.2, noise_bps: 0.2, range_coef: 0.05}
+margin:
+  account_leverage: {value: 2000, status: assumption, source: "Exness 1:2000 tier for equity < $5,000, without Unlimited"}
+instruments:
+  - {symbol: XAUUSD, base: XAU, quote: USD, asset_class: metal, margin_mode: leverage,
+     swap_long: -0.03, swap_short: -0.01, triple_swap_weekday: 2}
+  - {symbol: EURUSD, base: EUR, quote: USD, asset_class: fx, margin_mode: leverage, swap_free: true, triple_swap_weekday: 2}
+  - {symbol: GBPUSD, base: GBP, quote: USD, asset_class: fx, margin_mode: leverage, swap_free: true, triple_swap_weekday: 2}
+  - {symbol: USDJPY, base: USD, quote: JPY, asset_class: fx, margin_mode: leverage, swap_free: true, triple_swap_weekday: 2}
+  - {symbol: BTCUSD, base: BTC, quote: USD, asset_class: crypto, margin_mode: fixed, fixed_margin_rate: 0.0025,
+     swap_long: -0.10, swap_short: -0.10, triple_swap_weekday: 4}
+  - {symbol: NAS100, base: NAS, quote: USD, asset_class: index, margin_mode: fixed, fixed_margin_rate: 0.0025,
+     swap_long: -0.05, swap_short: -0.02, triple_swap_weekday: 4}
+# Assumptions recorded for the A-reference instruments above:
+#  * FX majors swap-free: Exness states majors can be traded swap-free (status may depend on behaviour).
+#  * XAU/BTC/NAS100 swap rates: placeholders (U8 unresolved); annual rates on notional.
+#  * BTC fixed margin 0.25% (1:400) and NAS100 0.25% (Exness USTEC 1:400): placeholders (U16).
