@@ -1,39 +1,45 @@
 # Autonomous Multi-Agent Trading World — Phase 0 Architecture & Plan
 
-Status: **Revision 3, for review.** Phase 1 does not start until this revision is approved.
+Status: **Revision 4, for review.** Phase 1 does not start until this revision is approved.
 
 Change log
 - **r1**: initial architecture, critique and plan.
-- **r2**: decisions 1–7; researched Exness specifications with verification status; Cent-account
-  analysis; Dukascopy + Exness cost-model design; hardware assessment.
-- **r3**: decisions 8–14 (§12.1). Formal definition of the three environments A/B/C (§1).
-  Cent-only Stage D. Modular regional configs until the legal entity is verified. MetaApi
-  deferred, so Phase 1 needs no credentials. Observation = 120 × M5 (configurable).
-  Exness 1:Unlimited account leverage and its conditions (§6.3). Verified-spec guard (§6.6).
-  Simulator test groups and synthetic-market experiments made explicit (§9).
+- **r2**: decisions 1–7; researched Exness specifications; Cent analysis; Dukascopy + Exness cost model.
+- **r3**: decisions 8–14; environments A/B/C; Cent-only Stage D; modular regions; MetaApi deferred;
+  120 × M5 observation; verified-spec guard; explicit test groups and synthetic experiments.
+- **r4**: decision 14 clarified (decision 15): **no fixed exposure ceiling in any environment.**
+  New uncapped action space (§5). Environment A gets an explicit margin and liquidation model.
+  3×/10×/50×/100× become benchmark experiments only. Numerical safeguards and per-decision
+  leverage recording. Environment B uses only verified Exness leverage and margin rules
+  (Unlimited never assumed). Environment C gets configurable leverage experiments. New synthetic
+  experiment S7 (does the agent find growth-optimal leverage?).
 
 ---
 
 ## 0. Summary
 
-1. **Three environments, never mixed** (§1): **A** fractional training (all six instruments, 3×
-   cap); **B** Exness Cent Stage D (only verified Cent instruments, real specs, regional rules);
-   **C** live virtual monitoring (live prices, simulated execution, **no order path at all**).
-2. **On an Exness Cent account, a $10 agent can trade FX even at 3×**, but very coarsely:
-   0, ±1.2× or ±2.3× of equity per FX pair. Gold needs ~$40 of notional. BTC and NAS100 availability
-   on Cent is contradictory in Exness's own documentation and stays **excluded from B until verified**.
-3. **The 5% death threshold is the experiment's survival rule.** Exness stop-out (0%, or 20% for
-   some entities) and negative balance protection are separate broker mechanics. Because death
-   fires at 5%, broker stop-out matters only on gaps.
-4. **Exness 1:Unlimited leverage affects only broker margin in B. It does not change the agent's
-   exposure cap.** It is conditional (equity threshold, eligibility, entity, instrument type,
-   Higher Margin Requirement periods), so B models those conditions explicitly (§6.3).
-5. **Phase 1 needs no broker credentials.** It uses synthetic data, Dukascopy history, official
-   Exness tick history and documented specs. Environment B refuses to run while any required spec
-   is unverified (§6.6).
-6. On historical data this is N independent price-takers on a shared tape, not an interacting
-   market (§4.4). "No trading knowledge" is approximated and every remaining bias is documented
-   (§5). Success claims are pre-registered and tested against null distributions (§8.4).
+1. **Agents choose their own exposure, with no behavioural ceiling.** The action space sets
+   direction/allocation and **log-scaled gross exposure** independently, spanning 0.0001× to
+   10,000× of equity (§5). Exposure above what the market allows is limited the way a real
+   broker limits it (margin rejection, stop-out, death), not by a cap inside the agent interface.
+2. **Three kinds of limits, kept strictly separate (§5.1):**
+   *behavioural caps*: **none** in the primary experiments (3×, 10×, 50× and 100× are benchmark
+   variants only); *market/broker constraints*: equity, margin, costs, maximum volume, stop-out,
+   death; *numerical safeguards*: finite value ranges that sit far above anything margin-feasible.
+   They are logged whenever touched and are never silent.
+3. **Environment A now has a margin and liquidation model.** Without margin, "uncapped" would mean
+   infinite exposure. The default is a documented **A-reference margin schedule** (§5.4), with an
+   "unlimited-margin" variant as an experiment.
+4. **Environment B uses only verified Exness Cent leverage and margin rules.** Unlimited is never
+   assumed from a small balance. It is enabled only if the verified eligibility conditions are met
+   by the simulated account (§7.3).
+5. **Every decision records requested vs. executed exposure, effective gross and net leverage,
+   margin level and any rejection** (§5.7).
+6. Three environments: **A** fractional training · **B** Exness Cent Stage D · **C** live virtual
+   (no real orders, ever) (§1). The 5% death rule is the experiment's survival criterion; broker
+   stop-out and NBP are modelled separately (§7.8).
+7. Phase 1 needs no broker credentials. Price-taker agents, documented biases, pre-registered
+   success criteria and null distributions, as in r3.
 
 ---
 
@@ -41,59 +47,62 @@ Change log
 
 | | **A. Fractional training** | **B. Exness Cent Stage D** | **C. Live virtual monitoring** |
 |---|---|---|---|
-| Purpose | learning (Stage A) and unseen-history tests (Stage B) | realistic small-account evaluation (spec Stage D) | forward test on incoming prices (spec Stage C) |
-| Instruments | all six: XAU/USD, EUR/USD, GBP/USD, USD/JPY, BTC/USD, NAS100 | **only instruments verified as available on the Exness Standard Cent account** for the verified entity; unverified ones are `tradeable = 0` | the instruments of the environment the agent is being monitored under (A or B rules) |
+| Purpose | learning (Stage A) and unseen-history tests (Stage B) | realistic small-account evaluation (Stage D) | forward test on incoming prices (Stage C) |
+| Instruments | all six: XAU/USD, EUR/USD, GBP/USD, USD/JPY, BTC/USD, NAS100 | only instruments **verified** as available on Exness Standard Cent for the verified entity | per chosen profile (A or B rules) |
 | Starting capital | $10 (normalized 1.0 internally) | $10 = 1,000 USC | $10 virtual |
-| Position sizing | fractional (continuous), tiny minimum trade threshold | Exness Cent min lot 0.01, lot step 0.01, contract specs; round toward zero | per A or B profile |
-| Exposure cap | **L = 3** (stress: L = 100) | the agent's cap is inherited from its experiment (3 or 100); **broker leverage 1:Unlimited** affects margin only | per profile |
-| Costs | realistic spread (calibrated to Exness), slippage, swaps; commission 0 (Exness Standard Cent has none) | verified Exness Cent spreads (calibrated), commissions (none), verified swaps and triple days | per profile |
-| Margin / stop-out | margin model not binding at 3×; **no broker stop-out** | verified Exness margin rules: leverage-based vs. fixed-margin instruments, equity tiers, HMR, stop-out level of the verified entity | per profile |
-| Negative balance | **no NBP** (gap losses stay negative; reward ε-floored) | **Exness NBP** per verified rule + separate **no-NBP stress** variant | per profile |
-| Death | equity ≤ 5% of initial | equity ≤ 5% of initial (evaluated before broker stop-out) | equity ≤ 5% of initial |
-| Data | Dukascopy M1 bid/ask 2018 → present; Exness-calibrated spreads | same price path; Exness-calibrated spreads; Cent specs | live price feed (source TBD, §7.3); same bar schema |
-| Real orders | impossible | impossible | **impossible**: no broker trading client is imported; enforced by a test |
+| Sizing | fractional; sub-cent positions treated as zero (numerical) | Cent lots: min 0.01, step 0.01; round toward zero | per profile |
+| **Exposure ceiling** | **none** (benchmark variants: 3×, 10×, 50×, 100×) | **none** beyond verified Exness margin rules, lot limits and max volume | **configurable leverage experiments** (uncapped, benchmark caps, or B margin settings) |
+| Margin | **A-reference margin schedule** (§5.4); variant: unlimited-margin | verified Exness Cent rules: account leverage setting, equity tiers, fixed-margin instruments, HMR, entity limits (§7.3) | per profile |
+| Margin rejection | atomic: increases rejected if they don't fit free margin (§5.5) | same, per Exness behaviour (to verify, U14) | per profile |
+| Stop-out | A-reference stop-out level (configurable; default 0%, as Exness global) | verified entity level (0% or 20%) | per profile |
+| Negative balance | no NBP (debt kept; reward ε-floored) | Exness NBP + separate no-NBP stress | per profile |
+| Death | equity ≤ 5% of initial | equity ≤ 5% of initial | equity ≤ 5% of initial |
+| Costs | Exness-calibrated spreads, slippage, swaps; no commission | verified Cent spreads (calibrated), commission (none), swaps | per profile |
+| Data | Dukascopy M1 bid/ask 2018 →; Exness-calibrated spreads | same price path; Cent specs | live feed (source TBD), identical bar schema |
+| Real orders | impossible | impossible | **impossible** (no trading client in the package; test-enforced) |
 
-Rules:
-- An agent trained in A is evaluated in B **without retraining**. The gap is reported as the
-  quantization/realism penalty (§7.5).
-- Profiles are data (YAML), not code. One simulated account always uses exactly **one** profile;
-  mixing Cent and Standard specs in one account is rejected by config validation.
+Rules: one account = one profile (no Cent/Standard mixing). A-trained agents are evaluated in B
+without retraining.
 
 ---
 
-## 2. Critique of the specification (status after r3)
+## 2. Critique of the specification (status after r4)
 
 | # | Issue | Resolution |
 |---|---|---|
-| 1 | $10 + L = 3 + real lots | A is fractional; B is Cent-only, where FX is tradable at 3× (coarsely) |
-| 2 | Normalized equity is not scale-invariant | Ledger in real USD/USC; normalization only in observations and rewards |
-| 3 | Multi-agent world on replay | Price-takers; diversity via seeds, learners, rewards and evolution (§4.4) |
-| 4 | Reward = risk preference | Log-wealth baseline; shaping variants labelled (§7) |
-| 5 | Hidden rebalancing in target exposure | Only deltas ≥ one lot step execute (§6.7) |
+| 1 | $10 + real lots | A fractional; B Cent-only (FX tradable; gold needs ≈ $40 notional) |
+| 2 | Normalized equity not scale-invariant | Ledger in USD/USC; normalization only for observations and rewards |
+| 3 | Multi-agent world on replay | Price-takers; diversity via seeds, learners, rewards, evolution |
+| 4 | Reward = risk preference | Log-wealth baseline; shaping variants labelled (§8) |
+| 5 | Hidden rebalancing in target exposure | Documented action semantics plus a delta-action ablation (§5.6) |
 | 6 | Decision frequency | 5-minute default; 1, 15, 60 configurable |
-| 7 | Observation window | **120 × M5 bars (10 h), configurable** (length and resolution) |
-| 8 | Trading sessions | UTC clock + per-instrument tradeable mask |
-| 9 | Death vs. stop-out | Death at 5% is the experimental criterion; stop-out/NBP modelled separately (B only) |
-| 10 | Zombie accounts | `incapacitated` status tracked (relevant in B with min lots) |
-| 11 | NBP as a free option | A: no NBP. B: Exness NBP + no-NBP stress |
-| 12 | Historical swaps unavailable | Documented snapshot approximation; swap-free majors as a variant |
-| 13 | Success criteria | Pre-registered (§8.4) |
-| 14 | Compute | Local first; hardware assessment pending (§14) |
-| 15 | No real orders | No order path in the package, test-enforced |
-| 16 | Train/serve skew in C | Bar-schema parity test |
-| 17 | Mid-only data | Dukascopy bid/ask |
-| 18 | Mixing account types | **Resolved: Cent-only B** |
-| 19 | HMR periods need a news calendar | Configurable HMR windows; calendar source unresolved (§13) |
-| 20 | Legal entity unknown | **Modular regional profiles; B is blocked until verified** (§6.5) |
-| 21 | **New:** "Unlimited leverage" vs. exposure cap | Interpreted as the Exness **account leverage setting** in B. The agent's exposure cap L stays 3 (stress 100). Needs your confirmation (§12.2) |
+| 7 | Observation window | 120 × M5 (configurable) |
+| 8 | Sessions | UTC clock + tradeable mask |
+| 9 | Death vs. stop-out | 5% death = experimental criterion; stop-out and NBP separate |
+| 10 | Zombie accounts | `incapacitated` tracked |
+| 11 | NBP as a free option | A no NBP; B Exness NBP + no-NBP stress |
+| 12 | Historical swaps | Snapshot approximation, documented |
+| 13 | Success criteria | Pre-registered (§9.4) |
+| 14 | Compute | Local first; hardware assessment pending |
+| 15 | No real orders | No order path; test-enforced |
+| 16 | Train/serve skew in C | Bar-parity test |
+| 17 | Mid-only data | Bid/ask |
+| 18 | Account mixing | Resolved: Cent-only B |
+| 19 | HMR needs a news calendar | Configurable windows; calendar source unresolved (U6) |
+| 20 | Legal entity | Modular regions; B blocked until verified |
+| 21 | Fixed exposure caps | **Resolved: removed (decision 15); uncapped action space §5** |
+| 22 | **New:** "uncapped" needs a margin model in A | A-reference margin schedule + unlimited-margin variant (§5.4); default needs approval (§13.2) |
+| 23 | **New:** uncapped exposure makes early training death-heavy and rewards heavy-tailed | Numerical safeguards, log-scaled exposure features, ε-floored log reward, entropy/initialization documented (§5.8, §8) |
 
 ---
 
 ## 3. Expectations
 
-Most agents will likely learn to stay flat, die, or capture drift that does not generalize.
-At 5-minute decisions, turnover costs dominate small edges. The design makes a null result
-measurable and trustworthy, and proves the learner on synthetic markets first (§9.3).
+Many agents will likely learn to stay flat, die from leverage, or capture drift that does not
+generalize. With uncapped exposure, **early training will be dominated by deaths**. That is the
+point: agents discover the consequences of leverage themselves. Under the log-wealth reward,
+leverage beyond the growth-optimal level lowers expected reward through variance, so moderate
+leverage *can* emerge without any rule. Synthetic experiment S7 (§10.3) tests whether it actually does.
 
 ---
 
@@ -107,454 +116,550 @@ measurable and trustworthy, and proves the learner on synthetic markets first (�
  bid/ask        │   align, validate, session masks)        │
  Exness ticks → │   Spread calibration (Exness cost model) │ → calibrated cost tables (hashed)
  Exness specs → │   Broker profile build + verification    │ → profile YAML with per-field status
- (documented)   └──────────────────────────────────────────┘
-                                   │
+                └──────────────────────────────────────────┘
             ┌──────────── deterministic core (no learning) ───────────┐
             │ 2 Replay: UTC clock, cursor, past-only windows          │
-            │ 3 Execution: bid/ask fills, latency, slippage, lots     │
-            │ 4 Accounts: ledger, margin, swaps, stop-out, NBP, death,│
-            │   USD/USC/JPY conversion; World: one clock, N accounts  │
+            │ 3 Execution: bid/ask fills, latency, slippage, lots,    │
+            │   atomic margin check, max-volume check                 │
+            │ 4 Accounts: ledger, margin model (A-reference / Exness),│
+            │   swaps, stop-out, NBP, death, USD/USC/JPY conversion;  │
+            │   World: one clock, N accounts, event log               │
             └─────────────────────────────────────────────────────────┘
                      ▲ actions                    │ observations
             ┌────────┴─────────────┐   ┌──────────▼───────────┐
             │ 6 Action Interface   │   │ 5 Observation Iface  │   ← only surface agents see
+            │ (uncapped, §5)       │   │                      │
             └────────▲─────────────┘   └──────────┬───────────┘
             ┌────────┴────────────────────────────▼────────────┐
             │ 7 Gymnasium Env + pluggable reward               │
             └────────▲─────────────────────────────────────────┘
-   8 Training (PPO → SAC, ES)    9 Evaluation (A → B transfer, walk-forward, null distributions)
-  10 Tracking (config, git, data, cost-table and profile hashes, seeds)   11 Dashboard (Phase 6)
-  12 Live virtual feed (Phase 5, environment C; read-only market data only)
+   8 Training (PPO → SAC, ES)    9 Evaluation (A → B transfer, leverage benchmarks, null distributions)
+  10 Tracking (config, git, data, cost-table and profile hashes, seeds; per-decision exposure log)
+  11 Dashboard (Phase 6)   12 Live virtual feed (Phase 5, read-only market data)
 ```
 
 ### 4.2 Design principles
 
-- **Deterministic core**: seeded generators only; same inputs ⇒ bit-identical event log.
-- **Event-sourced accounting**: fills, costs, swaps, stop-outs, NBP resets and deaths are immutable events.
-- **Isolation**: agents see only `Observation` → `Action`. Each agent has its own parameters, optimizer,
-  buffers and RNG stream (`SeedSequence(seed).spawn(n)`); no parameter sharing.
-- **Profiles as data**: broker, region and environment profiles are versioned YAML, and every field
-  carries `value`, `source`, `retrieved`, `status`.
-- **Simulator first**: no Gymnasium or PyTorch imports in the core.
-- **Performance**: pre-aligned `float32` arrays, zero-copy windows, numba only if profiling shows the need.
+Deterministic core (seeded RNG only); event-sourced accounting; strict isolation (own
+parameters, optimizer, buffers and RNG per agent; no parameter sharing); profiles as versioned
+data with per-field `value/source/retrieved/status`; simulator independent of Gymnasium and
+PyTorch; float64 ledger, float32 observations; pre-aligned arrays and zero-copy windows.
 
 ### 4.3 Technology stack
 
-Python 3.11+, NumPy (+ numba if needed), Polars/pandas → Parquet, DuckDB for log queries,
-Pydantic + YAML configs, Gymnasium, PyTorch with Stable-Baselines3 for the first PPO/SAC, own ES/GA
-loop, pytest + Hypothesis, own run registry + TensorBoard, Streamlit → FastAPI for the dashboard.
-Rationale as in r2: well-tested components where bugs are costly (RL), own code where control matters
-(simulator, ledger).
+Python 3.11+, NumPy (+ numba if needed), Polars/pandas → Parquet, DuckDB, Pydantic + YAML,
+Gymnasium, PyTorch + Stable-Baselines3 (first PPO/SAC), own ES/GA loop, pytest + Hypothesis,
+own run registry + TensorBoard, Streamlit → FastAPI.
 
-### 4.4 What "multi-agent" means
+### 4.4 Multi-agent meaning
 
-Price-takers on a shared tape. Running them together is mathematically identical to running them
-alone, and a test enforces that. Diversity comes from seeds, learners, rewards,
-observation/decision settings and population-based evolution, with selection only on account outcomes.
+Price-takers on a shared tape. Running agents together is identical to running them alone, which a
+test enforces. Diversity comes from seeds, learners, rewards, observation and decision settings, and
+population-based evolution.
 
 ---
 
-## 5. Learning without predefined strategies
+## 5. Action space, exposure and leverage (new in r4)
 
-- **Observation (default):** for each of the six instruments, the last **120 × M5 bars** (configurable
-  length and resolution), built only from completed M1 bars. Per bar: mid log return, range/mid,
-  body/mid, spread/mid, relative tick volume, tradeable flag. Plus own account state (log equity /
-  initial, free-margin fraction, margin level, exposure per instrument, unrealized PnL / equity, time
-  in position, margin-call flag where the profile has one). Optional time-of-day / day-of-week (ablated).
-- **Not given:** indicators, signals, absolute prices, dates, other agents, simulator internals,
-  cost-model parameters, future bars.
-- **Documented biases:** feature transform, network architecture, window and decision interval,
-  reward, learner. All are ablated.
-- The engine never trades for the agent except for enforced constraints (margin rejection, broker
-  stop-out in B, NBP in B, death), each logged with a reason.
+### 5.1 Three kinds of limits
+
+| Kind | Examples | Where enforced | Agent-visible? |
+|---|---|---|---|
+| **Behavioural cap** (an artificial limit on the agent's choice) | "max 3× exposure" | **Nowhere in the primary experiments.** Only in labelled benchmark variants (§5.9) | n/a |
+| **Market / broker constraint** (what a real participant faces) | equity; margin requirements; atomic margin rejection; broker max volume per order and position; lot step (B); stop-out; NBP (B); 5% death; costs | Execution and account engines, logged with a reason | Yes: free margin, margin level, rejection flag in the observation, as on a trading terminal |
+| **Numerical safeguard** (keeps computation valid) | finite action range; representational exposure range 10⁻⁴…10⁴×; NaN/Inf handling; float64 ledger; sub-cent position threshold | Action interface and engine; every activation is logged and counted | Indirectly (a rejected/invalid action is visible as "no change") |
+
+A safeguard that binds in practice would act as a hidden cap, so it is **monitored**. If more than
+a small fraction of decisions sit at the representational ceiling, the run is flagged and repeated
+with a wider range (sensitivity check).
+
+### 5.2 Action definition
+
+Each decision the agent outputs `n + 1` numbers, squashed to [-1, 1] by the policy (tanh):
+
+```
+d ∈ [-1,1]^n     direction and allocation per instrument
+u ∈ [-1,1]       gross-exposure level, log-scaled
+
+G(u)   = 10^(4·u)                         → 0.0001× … 1× (u = 0) … 10,000× of equity
+w_i    = G(u) · d_i / max(1, Σ_j |d_j|)   → signed target exposure (notional / equity) per instrument
+gross  = Σ|w_i| ≤ G(u) ;  net = Σ w_i
+```
+
+Properties:
+- **No behavioural ceiling:** any exposure from exactly 0 (d = 0) to 10⁴× equity is expressible,
+  far above the largest margin-feasible exposure (≈ 2,000× at 1:2000), so the market, not the
+  interface, decides what is possible.
+- **Log scale:** each 0.25 step of `u` is one order of magnitude. Exploration covers 0.1× and 100×
+  with equal ease, so agents can actually *discover* very high exposure. A linear scale up to 10⁴
+  would make low exposures practically unreachable, which would be a hidden bias.
+- **Neutral initialization:** a freshly initialized policy outputs u ≈ 0, i.e. ≈ 1× gross, with
+  log-symmetric exploration around it. This is an initialization choice; documented and ablated
+  (e.g. init at 0.1× and 10×).
+- **Zero exposure, long, short, partial, reversal and multi-instrument allocation** are all
+  continuous regions of the same space.
+- **Exposure semantics are explicit:** `w` is a *target* fraction of current equity. The agent
+  sees its current exposure, so "hold unchanged" means re-outputting the current target. This
+  is documented rather than hidden. A **delta-action ablation** (actions = change in exposure,
+  §5.6) tests whether the semantics shape behaviour.
+
+### 5.3 From target exposure to units
+
+```
+target_units_i = w_i · equity / (price_i · contract_size_i · fx_to_account_i)
+A: fractional; |target notional| < $0.001 ⇒ 0  (numerical threshold, logged)
+B: round toward zero to lot_step; |target| < min_lot ⇒ 0 (broker rule)
+delta_i = target_units_i − current_units_i
+```
+Fills: decision at the M5 bar close → next M1 open; buys at ask, sells at bid; adverse slippage;
+closed market ⇒ rejected and logged.
+
+### 5.4 Margin model in environment A
+
+Uncapped exposure needs a margin model; otherwise exposure would be unbounded except numerically.
+
+- **Default: A-reference margin schedule.** Per-instrument initial margin rates modelled on
+  documented Exness retail conditions *without* Unlimited: leverage-based instruments
+  (FX, gold) at 1:2000 (0.05%), and fixed-margin instruments (BTC, NAS100) at documented
+  Exness-style fixed margins (placeholder values marked ❓ until verified; e.g. NAS100 0.25%).
+  This is a realistic, very permissive retail regime: up to ≈ 2,000× on FX.
+- **Variant: unlimited-margin.** Margin rate ≈ 0 for leverage-based instruments; exposure then
+  limited only by the numerical range (10⁴×), equity, costs and death. It is labelled as an
+  experiment, since no broker works this way for all instruments at all times.
+- **Stop-out** in A: configurable, default 0% (Exness global). Death at 5% therefore fires first.
+- Margin uses float64 notional; margin level is reported as `equity / used_margin` (∞ when flat,
+  stored as a sentinel).
+
+### 5.5 Margin rejection (atomic, order-independent)
+
+At each decision: all **reductions** execute first (they free margin). Then all **increases**
+execute together if their total initial margin fits in free margin; **otherwise all increases in
+that decision are rejected** (`insufficient_margin`, as MT5 rejects with "not enough money"). There
+is no partial scaling and no instrument ordering, so the engine never chooses a size for the
+agent. The agent sees the rejection flag next step. A **scale-to-fit variant** (proportional
+reduction) exists only as a labelled experiment, because it is a sizing rule. Broker max volume per
+position (e.g. 200 lots) is applied the same way.
+
+### 5.6 Ablations of the action space
+
+| Variant | Definition | Question |
+|---|---|---|
+| X1 (primary) | factorized direction + log-gross (§5.2) | — |
+| X2 | signed-log per instrument: `w_i = sign(x_i)·(10^(4|x_i|) − 1)`, range 0…≈10⁴× per instrument, exactly 0 at x_i = 0 | does coupling allocation and scale matter? |
+| X3 | delta actions: `Δw_i` per decision, log-scaled | do target semantics shape holding behaviour? |
+| X4 | benchmark caps (§5.9) | what does the cap itself change? |
+
+### 5.7 Exposure and leverage recording (every decision)
+
+Per agent, per decision step:
+
+| Field | Meaning |
+|---|---|
+| `action_raw` | network outputs before squashing (for NaN diagnostics) |
+| `d`, `u`, `G` | squashed actions and gross level |
+| `w_target` | requested signed exposure per instrument |
+| `w_executed` | exposure after fills (after rounding, rejection, closed markets) |
+| `gross_leverage`, `net_leverage` | Σ|notional| / equity, Σ notional / equity, after execution |
+| `max_gross_leverage_interval` | highest mark-to-market gross leverage between this decision and the next (from M1 revaluation) |
+| `margin_used`, `free_margin`, `margin_level` | account state after execution |
+| `rejections` | insufficient margin, max volume, closed market, below minimum, invalid action |
+| `safeguards` | ceiling-proximity flag (u > 0.95), sub-threshold zeroing, NaN replacement |
+| `costs` | spread, slippage, commission, swap attributed to this step |
+| `equity`, `balance`, `status` | including death / stop-out / NBP events |
+
+Stored as Parquet (float32 where safe, float64 for money), partitioned by run/agent.
+
+### 5.8 Numerical safeguards
+
+| Risk | Safeguard |
+|---|---|
+| NaN/Inf actions | action ignored (positions unchanged), `invalid_action` event; training raises after K consecutive events (bug signal) |
+| Exposure overflow | representational range 10⁻⁴…10⁴×; notional and units computed in float64; asserts on finiteness |
+| Network inputs from huge leverage or negative equity | observation features use signed-log transforms: `sign(x)·log1p(|x|)` for leverage, PnL/equity, margin level |
+| Reward blow-ups | R1 uses `log(max(E_t, ε·E_0)/max(E_{t-1}, ε·E_0))`, ε = 0.01; optional running reward normalization |
+| Negative equity (A, no NBP) | allowed in the ledger; account is dead; reward floored |
+| Precision at extreme leverage | float64 ledger; golden tests at 2,000× and 10,000× |
+| Silent safeguard binding | counts per run; run flagged if the ceiling binds in > 0.1% of decisions |
+
+### 5.9 Benchmark leverage experiments (not limits)
+
+Same action space with the upper end of the log range set to `G_max ∈ {3, 10, 50, 100}`:
+`log10 G(u) = −4 + (u+1)/2 · (4 + log10 G_max)`, so u = −1 ⇒ 10⁻⁴× and u = +1 ⇒ G_max. This
+rescales the range instead of clipping it, which would create a flat, gradient-free region at the cap.
+They are trained and evaluated alongside uncapped agents. Reported: survival, log-growth,
+drawdown, turnover, and learned leverage distribution vs. uncapped. Optional: evaluate uncapped
+agents with a cap imposed at test time, to measure how much they rely on extreme exposure.
+
+### 5.10 Observation (default)
+
+Per instrument, the last **120 × M5 bars** (configurable), built only from completed M1 bars: mid log
+return, range/mid, body/mid, spread/mid, relative tick volume, tradeable flag. Account state:
+signed-log equity / initial, free-margin fraction, signed-log margin level, signed-log exposure per
+instrument, signed-log gross and net leverage, unrealized PnL / equity, time in position,
+last-decision rejection flags, margin-call flag (where the profile has one). Optional time
+features (ablated). **Not given:** indicators, signals, absolute prices, dates, other agents,
+simulator internals, cost-model parameters, the margin schedule as a parameter (agents feel it
+through rejections and margin level, as traders do), future bars.
 
 ---
 
-## 6. Broker specification: Exness (environment B)
+## 6. Learning without predefined strategies
 
-### 6.0 Verification policy
+Nothing in the engine opens, closes or resizes positions for the agent except enforced
+market/broker constraints (margin rejection, max volume, stop-out, NBP, death), each logged.
+There are no stop-losses, take-profits, sizing rules or leverage caps in the primary experiments.
+Remaining inductive biases (feature transforms, architecture, window, decision interval, action
+parametrization, initialization, reward, learner) are documented and ablated.
 
-- Direct fetches of Exness's help center return HTTP 403 from this environment. r2 facts came from
-  search-engine extracts of official pages, cross-checked, and Exness's pages **contradict each
-  other** on several points.
-- Status per field: **✅ verified** (official source, consistent, recorded with URL and date) ·
-  **⚠️ conflicting** · **❓ unverified/derived** · **⛔ unknown**.
-- **Verification sources for Phase 1 (no credentials needed):** (1) official Exness help-center and
-  product pages, copied into `docs/exness-spec-verification.md` with retrieval date. Since automated
-  fetches are blocked, these can be saved by you from a browser, or pasted. (2) Official Exness
-  tick history (bid/ask), which empirically confirms symbol existence, digits, trading sessions and
-  spreads. (3) **Later, optional:** a read-only Exness demo snapshot via MetaApi (deferred, decision 10).
+---
 
-### 6.1 Account-level facts (Standard Cent)
+## 7. Broker specification: Exness (environment B)
+
+### 7.0 Verification policy
+
+Direct fetches of Exness pages return HTTP 403 here. r2/r3 facts came from search-engine extracts
+of official pages, and Exness pages **contradict each other** on several points. Status per field:
+✅ verified · ⚠️ conflicting · ❓ unverified/derived · ⛔ unknown. Verification sources for Phase 1
+(no credentials): official pages saved or pasted by you into `docs/exness-spec-verification.md`;
+official Exness tick history. Later and optional: a read-only demo snapshot via MetaApi.
+
+### 7.1 Account-level facts (Standard Cent)
 
 | Item | Value | Status |
 |---|---|---|
-| Account currency | USC; $10 = 1,000 USC | ✅ |
-| Lot | 1 Cent lot = 0.01 standard lot (≈ 1,000 units of base currency) | ✅ |
+| Currency | USC; $10 = 1,000 USC | ✅ |
+| Lot | 1 Cent lot = 0.01 standard lot (≈ 1,000 base units) | ✅ |
 | Volume | min 0.01 (ETHUSDc 0.1); max 200 lots | ✅ |
 | Commission | none | ✅ |
-| Spread | "from 0.3 pips" (marketing floor; real distribution from tick calibration) | ✅ floor / ⛔ distribution |
+| Spread | "from 0.3 pips" (distribution from calibration) | ✅ / ⛔ |
 | Margin call | 60% | ✅ |
-| Stop-out | 0% default; **20% for Exness (KE) and Exness (JO)**; stocks up to 100% in high-risk periods | ✅ |
+| Stop-out | 0%; 20% for KE and JO entities; stocks up to 100% | ✅ |
 | Stop-out closing order | reportedly most unprofitable first | ❓ |
-| NBP | balance reset to 0 only after all orders were closed by stop-out and balance < 0 | ✅ |
-| Swap timing | 21:00 GMT+0 summer / 22:00 GMT+0 winter | ✅ (Exness) / ⚠️ (third-party: 00:00 server) |
-| Triple swap | FX Wednesday (USDCAD Thursday); indices Friday; crypto Friday | ✅ |
-| Swap-free | majors (and most minors) swap-free per Exness; status may depend on behaviour | ✅ / ❓ |
-| HMR window | 15 min before high-impact news → 90 s or 5 min after | ⚠️ |
+| NBP | reset to 0 only after a full stop-out with negative balance | ✅ |
+| Swap timing | 21:00 / 22:00 GMT+0 (summer/winter) | ✅ / ⚠️ |
+| Triple swap | FX Wed (USDCAD Thu); indices Fri; crypto Fri | ✅ |
+| Swap-free | majors and most minors swap-free; may depend on behaviour | ✅ / ❓ |
+| HMR window | 15 min before → 90 s or 5 min after high-impact news | ⚠️ |
+| Insufficient-margin behaviour | order rejected (MT5 standard) | ❓ (U14) |
 
-### 6.2 Instruments on the Cent account
+### 7.2 Instruments on Cent
 
-| Project instrument | Cent symbol | In B? | Smallest position | Margin type | Status |
+| Instrument | Symbol | In B? | Smallest position | Margin type | Status |
 |---|---|---|---|---|---|
-| EUR/USD | EURUSDc | **yes, once spec fields are verified** | ≈ €10 | leverage-based | availability ✅ |
+| EUR/USD | EURUSDc | yes, once fields verified | ≈ €10 | leverage-based | ✅ availability |
 | GBP/USD | GBPUSDc | yes, once verified | ≈ £10 | leverage-based | ✅ |
 | USD/JPY | USDJPYc | yes, once verified | $10 | leverage-based | ✅ |
-| XAU/USD | XAUUSDc | yes, once verified | ≈ 0.01 oz (derived from a 100 oz standard contract) | leverage-based; HMR band | availability ✅ / contract ❓ |
-| BTC/USD | BTCUSDc | **excluded until verified** | reported 0.01 BTC contract (denomination unclear) | fixed margin | ⚠️ (MT5-only listing vs. "unavailable"; blocked for KE) |
-| NAS100 | USTECc | **excluded until verified** | ⛔ | fixed 0.25% for USTEC (standard) | ⚠️ (listed vs. "indices not offered on Cent") |
+| XAU/USD | XAUUSDc | yes, once verified | ≈ 0.01 oz (≈ $40) | leverage-based + HMR | ✅ / contract ❓ |
+| BTC/USD | BTCUSDc | **excluded until verified** | ❓ | fixed | ⚠️ |
+| NAS100 | USTECc | **excluded until verified** | ⛔ | fixed | ⚠️ |
 
-### 6.3 Leverage: 1:Unlimited (decision 14) and its conditions
+### 7.3 Leverage and margin in B (decision 15, point 8)
 
-**Interpretation (to confirm, §12.2):** "unlimited leverage" is the **Exness account leverage
-setting** used to compute broker margin in environment B. It does **not** remove the agent's
-exposure cap: `w_i = L·a_i / max(1, Σ|a_j|)` needs a finite L, and A is defined with L = 3. The cap
-for B runs is the one the agent was trained or stress-tested with (3 or 100).
+B uses only verified rules. **Unlimited is never assumed because the balance is small.**
 
-What Exness documents about Unlimited (to be verified field by field):
+- **Account leverage setting** is an experiment parameter, chosen only from values **verified as
+  available** to the verified entity: candidates 1:200, 1:400, 1:1000, 1:2000, 1:Unlimited.
+- **1:Unlimited** is enabled only if (a) its eligibility conditions are verified (U5: equity
+  threshold, which sources give as $5,000 or ≈ $1,000, plus trading-history requirements), and
+  (b) the simulated account meets them **at that moment**. The simulator tracks the conditions
+  (equity, and history such as trade count/volume if those are the verified criteria). A fresh $10
+  account that lacks the history therefore does **not** get Unlimited.
+- **Equity tiers** (✅): < $5k 1:2000 (Unlimited if eligible); $5k–30k 1:2000; $30k–100k 1:1000;
+  ≥ $100k 1:500, applied as the verified rule specifies (how tier changes affect open positions is U15).
+- **Fixed-margin instruments** (crypto, indices) ignore account leverage (✅). **HMR** windows raise
+  margins (✅ existence, ⚠️ details). **Entity caps** apply (e.g. KE 1:400, ✅).
+- Until U1/U5 are resolved, B runs are **sensitivity-tagged** across candidate leverage settings and
+  regions. No B result is reported as "the" Stage D result.
 
-| Condition | Value | Status |
+### 7.4 $10 account in B: what is feasible
+
+| Instrument | Smallest exposure step at $10 | Max exposure, margin-limited (1:2000 example) |
 |---|---|---|
-| Equity tiers | < $5,000: 1:2000 default, 1:Unlimited **if eligible**; $5k–30k 1:2000; $30k–100k 1:1000; ≥ $100k 1:500 | ✅ tiers |
-| Eligibility for Unlimited | equity below a threshold **plus** trading-history requirements; threshold reported as $5,000 by some sources and ~$1,000 by others | ⚠️ |
-| Entity caps | Exness (KE): max 1:400 | ✅ |
-| Instruments not affected | fixed-margin instruments (crypto, indices, some others) use a fixed margin regardless of account leverage | ✅ |
-| HMR periods | higher margin (e.g. gold 1:200–1:1000 band, crypto 1:200–1:400, indices 1:50–1:100 reported) overrides account leverage around high-impact news | ✅ existence / ⚠️ windows and bands |
-| Margin formula under Unlimited | ⛔ (how Exness computes "unlimited" margin, e.g. minimal vs. zero, and margin level under it) | ⛔ |
+| EURUSDc | ≈ 1.16× equity | ≈ 2,000× (≈ 1,700 minimum units) |
+| GBPUSDc | ≈ 1.3× | ≈ 2,000× |
+| USDJPYc | 1.0× | ≈ 2,000× |
+| XAUUSDc | ≈ 4× | per verified gold margin / HMR band |
 
-Modelling consequence: in B with Unlimited, margin will essentially never bind for FX at L = 3 or
-L = 100. The binding constraints are the agent's L cap, lot quantization, costs and the 5% death
-floor. HMR can still bind during news windows (only in L = 100 stress tests), so an HMR calendar
-is needed for B's high-leverage runs (§13).
+**Resolution is coarse at low exposure** (no 0.5× EUR/USD possible at $10) and fine at high
+exposure. Costs scale with exposure: a 1-pip EUR/USD spread is ≈ 0.9 bps of notional, i.e. ≈ 0.9%
+of equity per round trip at 100× and ≈ 18% at 2,000×. Agents will feel this directly. Pip values are
+golden-tested (USC/USD factor-of-100 risk).
 
-The profile supports all leverage values (`1:Unlimited`, `1:2000`, `1:400`, …) so sensitivity runs
-can show whether results depend on Unlimited being available.
-
-### 6.4 $10 account in B (Cent-only)
-
-Max notional: L = 3 → $30; L = 100 → $1,000.
-
-| Instrument | Smallest position | L = 3 exposure steps | L = 100 |
-|---|---|---|---|
-| EURUSDc | ≈ $11.6 | 0, ±1.16×, ±2.3× | ≈ 0.12× steps |
-| GBPUSDc | ≈ $13 | 0, ±1.3×, ±2.6× | ≈ 0.13× steps |
-| USDJPYc | $10 | 0, ±1×, ±2×, ±3× | 0.1× steps |
-| XAUUSDc | ≈ $40 | not tradable | ≈ 4× steps |
-| BTCUSDc / USTECc | excluded until verified | — | — |
-
-Costs: no commission. The minimum EURUSDc position moves $0.001 (0.1 USC) per pip. A 1-pip spread is
-≈ 0.9 bps of notional, so a round trip at 2× ≈ 1.8 bps of equity; 100 round trips/day ≈ 1.8%/day.
-Exact pip values are golden-tested (factor-of-100 USC/USD risk).
-
-### 6.5 Regional configuration (modular until verified)
+### 7.5 Regional configuration (modular until verified)
 
 ```
 configs/brokers/exness/
-  account_types/standard_cent.yaml       # account-level facts (§6.1), per-field status
-  instruments/{EURUSDc,...}.yaml         # per-symbol specs (§6.2)
-  regions/
-    global.yaml                          # stop-out 0%, leverage tiers incl. Unlimited
-    ke.yaml                              # stop-out 20%, max 1:400, BTCUSDc blocked
-    jo.yaml                              # stop-out 20%, leverage cap (to verify)
-    unverified.yaml                      # ACTIVE DEFAULT: marks all region-dependent fields ⛔
+  account_types/standard_cent.yaml
+  instruments/{EURUSDc,...}.yaml
+  leverage/{tiers.yaml, unlimited_eligibility.yaml, hmr.yaml}
+  regions/{global.yaml, ke.yaml, jo.yaml, unverified.yaml (ACTIVE DEFAULT)}
 ```
-A B profile = account type ⊕ region ⊕ instruments. **The legal entity serving your account is not
-assumed** (decision 9). Until you confirm it, the active region is `unverified`: B can be built and
-unit-tested, and can run explicitly labelled **sensitivity runs across regions**, but no B result is
-reported as "the Exness Stage D result".
+B profile = account type ⊕ region ⊕ leverage setting ⊕ instruments. The legal entity is not
+assumed (decision 9).
 
-### 6.6 Verified-spec guard
+### 7.6 Verified-spec guard
 
-Loading a B profile for an evaluation fails if any field the run needs is not ✅. The error lists
-the fields, sources and statuses. A `--sensitivity` flag allows running over candidate values,
-and the results are tagged `unverified-spec` in tracking.
+B evaluations fail to load if any required field is not ✅ (the error lists the fields). The
+`--sensitivity` flag runs over candidate values and tags results `unverified-spec`.
 
-### 6.7 From action to orders (no hidden rebalancing)
+### 7.7 Spread and cost model
 
-```
-a ∈ [-1,1]^n  →  w_i = L·a_i / max(1, Σ|a_j|)               (gross ≤ L)
-target_units_i = w_i · equity / (price_i · contract_size_i · fx_to_account_i)
-A: fractional (no rounding; minimum trade threshold)
-B: round toward zero to lot_step; |target| < min_lot ⇒ 0
-execute delta_i only if |delta_i| ≥ lot_step_i ; reductions first, then increases
-B margin check: increases beyond free margin reduced to the largest affordable size (logged)
-```
-Decision at the close of the M5 decision bar → fill at the next **M1** open; buys at ask, sells at
-bid; adverse slippage (base + range-scaled + seeded noise); closed market ⇒ rejected and logged.
+Dukascopy bid/ask M1 is the price path. The Exness spread distribution is calibrated from official
+Exness tick history by hour-of-week and volatility regime, and replaces the Dukascopy spread around
+the Dukascopy mid. Calibration is validated on held-out Exness months. Swaps come from a dated
+snapshot (approximation).
 
-### 6.8 Death, stop-out and NBP: order of evaluation (B)
+### 7.8 Death, stop-out, NBP: order of evaluation (A and B)
 
-At every M1 step:
-1. Revalue positions (intra-bar adverse extremes, documented as conservative).
-2. **Death check:** equity ≤ 5% of initial ⇒ close all, terminate (`equity_floor`).
-3. **Broker stop-out check** (only reachable if a gap skipped past the 5% floor): margin level ≤
-   the verified stop-out level ⇒ close positions at the gap price (order per verified rule) ⇒ agent
-   dead (`gap_through`).
-4. **NBP:** balance < 0 after a full stop-out ⇒ reset to 0 (`nbp_reset`) in the NBP profile; kept as
-   debt in the no-NBP stress profile.
-
-In environment A, steps 3–4 are replaced by: negative equity is kept, and the reward is ε-floored.
+At every M1 step: (1) revalue at intra-bar adverse extremes (conservative, documented);
+(2) **death check**: equity ≤ 5% of initial ⇒ close all, terminate (`equity_floor`);
+(3) **broker stop-out** at the profile's level (reachable before death only if the stop-out level
+is above 5% equity-equivalent, or on gaps) ⇒ liquidation per verified order (`stop_out` /
+`gap_through`); (4) **NBP** (B profile): negative balance after a full stop-out ⇒ reset to 0;
+no-NBP profiles keep the debt. At extreme leverage, death can occur within one M1 bar. The fill
+then happens at the trigger price + slippage, or at the bar open if it gapped through.
 
 ---
 
-## 7. Rewards and learners
+## 8. Rewards and learners
 
-### 7.1 Reward variants (net-of-cost equity)
+### 8.1 Reward variants (net-of-cost equity)
 
-| ID | Reward | Expected behaviour |
+| ID | Reward | Expected behaviour with uncapped exposure |
 |---|---|---|
-| R1 baseline | `log(max(E_t, ε·E_0)/E_{t-1})`, ε = 0.01 | growth-optimal; penalizes variance and ruin |
-| R2 negative control | `(E_t − E_{t-1})/E_0` | risk-neutral; expected to drive max leverage and death |
+| R1 baseline | ε-floored log-wealth growth | growth-optimal: leverage above the log-optimal level lowers expected reward (variance drag ≈ −G²σ²/2), so high leverage is discouraged by outcomes, not rules |
+| R2 negative control | linear equity change / E₀ | risk-neutral: expected to push exposure towards the margin limit and die |
 | R3 | R1 − λ·Δdrawdown | labelled risk preference |
-| R4 | differential Sharpe ratio | smooth; gameable by near-zero variance |
-| R5 | sparse terminal log-wealth | no shaping; hard credit assignment |
+| R4 | differential Sharpe | leverage-invariant in theory; gameable by tiny variance |
+| R5 | sparse terminal log-wealth | hard credit assignment |
 
-Never: trade-count bonuses, win-rate rewards, market-presence rewards, realized-only PnL rewards.
+Never: trade-count bonuses, win-rate rewards, market-presence rewards, realized-only rewards.
 
-### 7.2 Reward-hacking closures
+### 8.2 Reward-hacking closures
 
-Bid/ask fills and tradeable mask; rounding toward zero; margin checks; no NBP in A; one continuous
-life in evaluation; gap valuation; no absolute levels or dates; all variants judged on the same
-out-of-sample metrics; cost-robustness tests at 1.5× and 2×; calibration tests against held-out
-Exness tick months.
+Bid/ask fills and tradeable mask; rounding toward zero (B); atomic margin rejection (no
+engine-chosen sizes); no NBP in A; one continuous life in evaluation; gap valuation; no absolute
+levels or dates; same out-of-sample metrics for every variant; cost robustness at 1.5× and 2×;
+safeguard-binding monitor (§5.8), so the numerical ceiling cannot quietly become the strategy.
 
-### 7.3 Learners and baselines
+### 8.3 Learners and baselines
 
-PPO first (tanh-squashed or Beta policy), then SAC and ES/GA. Baselines (flat, uniform random,
-equal-weight buy-and-hold, turnover-matched random) form the null distribution and are never shown
-to agents.
+PPO first (tanh-squashed policy), then SAC and ES/GA. Entropy and initialization settings are
+recorded, because uncapped exposure makes exploration consequential. Baselines (flat, uniform
+random, equal-weight buy-and-hold at 1×, turnover-and-leverage-matched random) form the null
+distribution.
 
-### 7.4 Live feed for environment C (Phase 5, unresolved source)
+### 8.4 Environment C leverage experiments
 
-Read-only price sources only: candidates are Exness via a read-only MetaApi/MT5 connection (when
-re-introduced), a public crypto feed for BTC, or another FX data vendor. Whatever is chosen must
-produce the identical bar schema (bar-parity test). Execution is always the simulator.
+C runs an agent under any profile: A-uncapped, A-benchmark caps, or B with any verified leverage
+setting. Several such virtual accounts can follow the same agent in parallel (e.g. one agent at
+1:2000 vs. 1:400), all on simulated execution.
 
-### 7.5 A → B transfer
+### 8.5 A → B transfer
 
-B evaluation without retraining. Reported: performance gap vs. A, the share of targets rounded to
-zero, turnover change, and the effect of excluded instruments. Optional: quantization-aware
-fine-tuning on training-period data only.
+Evaluation without retraining. Reported: gap vs. A, share of targets rounded to zero, rejection
+rates, turnover and leverage changes, and the effect of excluded instruments.
 
 ---
 
-## 8. Leakage and overfitting
+## 9. Leakage and overfitting
 
-### 8.1 Splits
+### 9.1 Splits
 
 | Split | Period | Use |
 |---|---|---|
-| Train | 2018-01 → 2022-12 | Stage A (environment A) |
+| Train | 2018-01 → 2022-12 | Stage A |
 | Embargo | 2 weeks | |
-| Validation | 2023-01 → 2023-12 | hyperparameters, model selection |
+| Validation | 2023-01 → 2023-12 | hyperparameters, selection |
 | Embargo | 2 weeks | |
-| Test | 2024-01 → 2025-06 | unseen history (A and B); milestone-only, access logged |
-| Final holdout | 2025-07 → present | touched once, before C |
-| Exness cost calibration | Exness tick months (as old as available; preferably pre-test) | spread statistics only, never price inputs |
+| Test | 2024-01 → 2025-06 | unseen history (A, B); milestone-only, access logged |
+| Final holdout | 2025-07 → present | once, before C |
+| Exness cost calibration | Exness tick months (oldest available preferred) | spread statistics only |
 
-Walk-forward folds inside the training range. If Exness tick history only covers recent months, the
-calibration overlaps the test period. That is a documented leak of **cost statistics only**.
+### 9.2 Leakage controls
+Bars closed at or before decision time only; future-perturbation test; window-local normalization;
+M5 only from completed M1; physically separate test files.
 
-### 8.2 Leakage controls
-Only bars closed at or before decision time; future-perturbation test; window-local normalization;
-M5 aggregation only from completed M1 bars; physically separate test files that the training loader
-refuses.
+### 9.3 Overfitting controls
+Random episode starts; validation-only selection; drift-adjusted reporting; deflated Sharpe, null
+distributions, block bootstrap; cost robustness; **leverage robustness** (results re-evaluated under
+alternative margin settings).
 
-### 8.3 Overfitting controls
-Random episode starts; validation-only selection; drift-adjusted reporting (optional sign-flip
-augmentation); deflated Sharpe and null distributions with block bootstrap; cost robustness.
-
-### 8.4 Pre-registered success criteria (test split, all required)
+### 9.4 Pre-registered success criteria (test split, all required)
 1. Net log-growth > 0, 95% block-bootstrap CI excluding 0.
-2. Above the 95th percentile of turnover-matched random agents.
+2. Above the 95th percentile of turnover-and-leverage-matched random agents.
 3. Not explained by buy-and-hold drift.
-4. Still positive at 1.5× costs.
+4. Positive at 1.5× costs.
 5. Consistent across ≥ 2 non-overlapping sub-periods.
-6. Reported separately in B (verified profile only), including quantization and excluded-instrument effects.
+6. Reported separately in B (verified profile only).
 
 ---
 
-## 9. Validation plan (retained from r1/r2, now explicit)
+## 10. Validation plan
 
-### 9.1 Data-quality checks
-Monotonic unique UTC timestamps; bid ≤ ask; OHLC consistency per side; gap classification
-(weekend, session break, outage); DST; spread outliers; Dukascopy-vs-Exness mid divergence on
-overlapping months.
+### 10.1 Data-quality checks
+Monotonic unique UTC timestamps; bid ≤ ask; OHLC consistency; gap classification; DST; spread
+outliers; Dukascopy-vs-Exness divergence.
 
-### 9.2 The 15 simulator test groups (Phase 1 exit gate)
+### 10.2 The 15 simulator test groups (Phase 1 exit gate)
 
-1. **No look-ahead:** future-perturbation test; M5 bars only from completed M1 bars.
-2. **Fills:** ask/bid at the next M1 open; adverse slippage; exact commissions (0 for Exness Cent).
-3. **Accounting invariants** (Hypothesis): equity = balance + unrealized; Δbalance = realized −
-   costs − swaps; ledger reconciliation; zero-cost round trip ⇒ zero PnL.
-4. **Golden scenarios:** hand-computed trades per instrument, including USD/JPY → USD/USC conversion,
-   the USC/USD factor-of-100 check, and XAUUSDc pip values.
-5. **Action mapping:** formula exact; gross ≤ L; zero ⇒ flat; reversal; rounding toward zero; min lot.
-6. **Margin:** leverage-based vs. fixed-margin instruments; equity tiers; Unlimited; HMR windows;
-   orders beyond free margin reduced and logged.
-7. **Death and stop-out:** death at 5% before broker stop-out; gap-through stop-out at the verified
-   level and closing order; no actions after death.
-8. **NBP:** reset only after a full stop-out with negative balance; no-NBP profile keeps the debt;
-   A keeps negative equity with an ε-floored reward.
-9. **Swaps:** charged only across rollover; triple days per instrument class; swap-free variant.
-10. **Sessions:** no fills when closed; daily breaks for gold and indices; 24/7 BTC; weekend-gap valuation.
-11. **Determinism:** same seed ⇒ identical event-log hash.
-12. **Isolation:** agent results identical alone vs. with other agents.
-13. **Baselines:** flat, buy-and-hold and random agents match analytic expectations.
-14. **No order path / profile integrity:** no broker trading client or trade endpoint in the
-    package; one profile per account (no Cent/Standard mixing); the verified-spec guard rejects
-    unverified B fields.
-15. **Performance benchmark:** steps/s recorded per machine; regressions flagged.
+1. **No look-ahead:** future-perturbation test; M5 from completed M1 only.
+2. **Fills:** ask/bid at the next M1 open; adverse slippage; exact commissions.
+3. **Accounting invariants** (Hypothesis, including random actions across the full 10⁻⁴…10⁴ range).
+4. **Golden scenarios:** per instrument, USD/JPY → USD/USC, USC factor-of-100, XAUUSDc pip value,
+   **extreme-leverage trades at 2,000× and 10,000×** (precision).
+5. **Action mapping:** G(u) exact; d = 0 ⇒ flat; gross ≤ G; reversal; B rounding toward zero; min
+   lot; NaN/Inf handling; ceiling-proximity flag; benchmark-cap mapping.
+6. **Margin:** A-reference schedule and unlimited variant; Exness leverage-based vs. fixed margin;
+   equity tiers; Unlimited eligibility (granted only when verified conditions hold); HMR; **atomic
+   rejection** (all increases rejected, reductions executed, order-independent); max volume.
+7. **Death and stop-out:** death at 5%; stop-out at the profile level; gap-through; intra-bar death
+   at extreme leverage; no actions after death.
+8. **NBP:** B reset rule; no-NBP debt; A negative equity with ε-floored reward.
+9. **Swaps:** across rollover only; triple days; swap-free variant.
+10. **Sessions:** closed-market rejection; daily breaks; 24/7 BTC; weekend gaps.
+11. **Determinism:** identical event-log hash for the same seed.
+12. **Isolation:** agent results identical alone vs. with others.
+13. **Baselines:** analytic checks for flat, buy-and-hold and random agents.
+14. **No order path / profile integrity:** no trading client; no Cent/Standard mixing; verified-spec
+    guard; **no behavioural cap active in primary configs** (config test).
+15. **Performance benchmark** + **recording completeness** (every decision row has all §5.7 fields).
 
-### 9.3 Synthetic-market learning experiments (Phase 2 gate)
+### 10.3 Synthetic-market learning experiments (Phase 2 gate)
 
-Before any real data is used for learning, the learning loop must pass:
-
-| Experiment | Synthetic market | Expected outcome |
+| Exp. | Synthetic market | Expected outcome |
 |---|---|---|
-| S1 | AR(1) mean-reverting returns with costs | profitable policy learned; beats the null distribution |
-| S2 | Drift that switches sign with a visible regime flag | learns to follow the flag's regime |
-| S3 | Pure random walk with costs | converges to ≈ flat (no turnover) |
-| S4 | Random walk, no costs | no systematic profit (sanity: zero-edge market) |
-| S5 | Leakage canary: future returns hidden in a field the agent **cannot** see | no profit; a profit means a leak |
-| S6 | High-leverage trap: positive drift but fat-tailed crashes; L = 100 | R1 agents survive with moderate exposure; R2 agents die (validates reward behaviour) |
+| S1 | AR(1) mean-reverting returns with costs | profitable policy; beats the null distribution |
+| S2 | sign-switching drift with a visible regime flag | follows the regime |
+| S3 | random walk with costs | converges to ≈ flat |
+| S4 | random walk, no costs | no systematic profit |
+| S5 | leakage canary (future returns in a field the agent cannot see) | no profit; profit ⇒ leak |
+| S6 | positive drift with fat-tailed crashes, uncapped | R1 survives with moderate exposure; R2 drives to high leverage and dies |
+| **S7** | **GBM with known drift μ and volatility σ, no costs** | **R1 agent's learned leverage approaches the growth-optimal μ/σ² (within tolerance); R2 does not.** This tests whether agents can discover sensible leverage without any rule |
 
-Plus Gymnasium `check_env`. These are tests of the learning machinery, not strategies given to agents.
+Plus Gymnasium `check_env`.
 
 ---
 
-## 10. Directory structure
+## 11. Directory structure
 
 ```
 trading-world/
 ├── pyproject.toml
 ├── README.md
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── simulator-spec.md
-│   ├── exness-spec-verification.md   ← each field: value, source URL, retrieved date, status
-│   └── decisions/                    ← ADRs
+├── docs/  ARCHITECTURE.md · simulator-spec.md · exness-spec-verification.md · decisions/
 ├── configs/
 │   ├── environments/{A_fractional, B_exness_cent, C_live_virtual}.yaml
+│   ├── margin/{a_reference.yaml, a_unlimited.yaml}
 │   ├── instruments/
-│   ├── brokers/
-│   │   ├── fractional.yaml
-│   │   └── exness/{account_types, instruments, regions}/   (see §6.5)
-│   └── experiments/
+│   ├── brokers/{fractional.yaml, exness/{account_types, instruments, leverage, regions}/}
+│   └── experiments/  (primary uncapped; benchmark caps 3/10/50/100; ablations X2–X3)
 ├── src/tradeworld/
-│   ├── data/          # sources/{dukascopy, exness_ticks}, align, quality, store
-│   ├── calibration/   # Exness spread model + validation
-│   ├── brokerspec/    # profile loading, composition, verified-spec guard
+│   ├── data/  calibration/  brokerspec/
 │   ├── replay/  market/  execution/  accounts/  world/
-│   ├── interface/  envs/  rewards/  agents/  training/
-│   ├── evaluation/  tracking/
-│   ├── live/          # Phase 5: read-only feeds only
-│   └── dashboard/     # Phase 6
+│   ├── interface/      # observation builder, uncapped action mapper, safeguards
+│   ├── envs/  rewards/  agents/  training/
+│   ├── evaluation/  tracking/  live/  dashboard/
 ├── tests/  unit/ property/ golden/ integration/ synthetic/ benchmarks/
 ├── scripts/  hardware_check, download_dukascopy, import_exness_ticks, calibrate_costs, run_world
-├── data/   # gitignored
-└── runs/   # gitignored
+├── data/  runs/   (gitignored)
 ```
 
-`btc-trading-bot/` stays in the repository, untouched, and is not part of this project (decision 12).
+`btc-trading-bot/` remains untouched and separate (decision 12).
 
 ---
 
-## 11. Metrics per agent
+## 12. Metrics per agent
 
-Everything in spec §11, plus log-growth, Sharpe/Sortino, deflated Sharpe, drawdown duration,
-turnover, gross/net leverage, cost and swap share of gross PnL, time in market, long/short bias,
-allocation entropy, holding-time distribution, stop-out/NBP counts, time to death, incapacitated
-duration, margin-limited orders, rounded-to-zero rate (B). Behaviour clustering compares emergent
-diversity against seed-only diversity.
+Spec §11 metrics, plus log-growth, Sharpe/Sortino, deflated Sharpe, drawdown duration, turnover,
+**leverage profile** (distribution of gross/net leverage, time at > 10×/100×/1,000×, leverage
+before death, leverage response after losses and gains), cost and swap share, time in market,
+long/short bias, allocation entropy, holding times, rejection counts, safeguard activations,
+stop-out/NBP counts, time to death, incapacitated duration, rounded-to-zero rate (B). Behaviour
+clustering includes leverage features.
 
 ---
 
-## 12. Decisions
+## 13. Decisions
 
-### 12.1 Recorded
+### 13.1 Recorded
 
 | # | Date | Decision |
 |---|---|---|
-| 1 | 2026-11-15 | Fractional position sizing during training, with realistic costs |
+| 1 | 2026-11-15 | Fractional sizing during training, realistic costs |
 | 2 | 2026-11-15 | Exness specs for Stage D (refined by 8) |
 | 3 | 2026-11-15 | Verified Exness margin and leverage, configurable per instrument and account type |
-| 4 | 2026-11-15 | Exness NBP in the broker profile, plus a no-NBP stress scenario |
+| 4 | 2026-11-15 | Exness NBP in the broker profile + no-NBP stress |
 | 5 | 2026-11-15 | Dukascopy M1 bid/ask from 2018; Exness data for calibration |
-| 6 | 2026-11-15 | 5-minute decisions; 1, 15 and 60 configurable |
-| 7 | 2026-11-15 | Develop locally first; hardware assessment before long runs |
-| 8 | 2026-11-15 | **Stage D = Exness Cent-only account.** No Cent/Standard mixing. Only instruments verified as available on Cent. A keeps all six instruments |
-| 9 | 2026-11-15 | **Legal entity is not assumed** (not from nationality or residence). Regional config is modular until verified |
-| 10 | 2026-11-15 | **MetaApi deferred.** Start with official Exness tick history and verified specs. Phase 1 needs no credentials; read-only demo integration later |
-| 11 | 2026-11-15 | **Observation = 120 × M5 bars (10 h)**, configurable for experiments |
-| 12 | 2026-11-15 | **Keep `btc-trading-bot/`** unmodified; inspect separately later |
-| 13 | 2026-11-15 | **Three environments A/B/C** as defined in §1. **5% death is the experimental survival criterion**; broker stop-out and NBP modelled separately per verified Exness rules. C has absolutely no real order execution |
-| 14 | 2026-11-15 | **Unlimited leverage** (interpretation in §6.3, to confirm) |
+| 6 | 2026-11-15 | 5-minute decisions; 1/15/60 configurable |
+| 7 | 2026-11-15 | Local development first; hardware assessment before long runs |
+| 8 | 2026-11-15 | Stage D = Exness Cent-only; no mixing; only verified instruments; A keeps all six |
+| 9 | 2026-11-15 | Legal entity not assumed; modular regional config |
+| 10 | 2026-11-15 | MetaApi deferred; Phase 1 needs no credentials |
+| 11 | 2026-11-15 | Observation 120 × M5, configurable |
+| 12 | 2026-11-15 | Keep `btc-trading-bot/` unmodified |
+| 13 | 2026-11-15 | Environments A/B/C; 5% death is the survival criterion; stop-out/NBP separate; C never executes real orders |
+| 14 | 2026-11-15 | ~~Unlimited leverage (r3 interpretation: account setting only)~~, **superseded by 15** |
+| 15 | 2026-11-15 | **No fixed exposure ceiling.** A: agents discover exposure themselves; no hidden sizing or risk rules; equity, costs, margin and liquidation preserved; numerical safeguards; exposure and leverage recorded every decision; 3×/10×/50×/100× are benchmark experiments only. B: only verified Exness Cent leverage and margin rules; Unlimited not assumed from a small balance. C: configurable leverage experiments |
 
-### 12.2 Needs your confirmation
+### 13.2 Needs your approval
 
-1. **Decision 14 interpretation:** Exness account leverage = 1:Unlimited for broker margin in B,
-   while the agent's exposure cap stays L = 3 (stress L = 100)? Or did you mean removing the
-   exposure cap? (Removing it would need a different action mapping, because the formula requires
-   a finite L.)
-2. **Legal entity:** to be supplied by you once verified (Personal Area / account agreement).
-
----
-
-## 13. Unresolved specifications (blocking for B results, not for Phase 1)
-
-| # | Item | Needed for | How to resolve |
-|---|---|---|---|
-| U1 | Legal entity → stop-out level, leverage cap, instrument restrictions | B | you verify; then select `regions/*.yaml` |
-| U2 | BTCUSDc availability on Cent (MT5) and contract denomination | B instrument set | official page copy; Exness tick history symbol list; later demo |
-| U3 | USTECc availability and contract size on Cent | B instrument set | same |
-| U4 | XAUUSDc contract size (derived 1 oz per Cent lot) and pip value | B golden tests | official spec copy; tick data digits |
-| U5 | Unlimited-leverage eligibility conditions and margin formula | B margin | official Leverage page copy |
-| U6 | HMR windows (90 s vs. 5 min after news), bands per instrument, and a historical high-impact news calendar | B at L = 100 | official HMR page; choose a calendar source |
-| U7 | Stop-out closing order | B gap scenarios | official page or support |
-| U8 | Swap values (long/short) per symbol, swap-free eligibility | A and B costs | official swap tables (snapshot), later demo |
-| U9 | Whether Exness tick history includes Cent symbols, or whether Cent spreads equal Standard | cost calibration | inspect the tick-history symbol list |
-| U10 | Rollover time (21/22:00 GMT vs. 00:00 server) and server time zone | swaps, sessions | official About-swap page copy; tick timestamps |
-| U11 | Trading sessions and daily breaks per symbol | session mask | official pages; inferred from tick gaps and cross-checked |
-| U12 | Live price source for C | Phase 5 | decide in Phase 5 |
-| U13 | Dukascopy BTC history start date | A data range | on download |
-
-Assumptions in force until resolved: Cent spreads ≈ Standard spreads (U9); swaps from a current
-snapshot applied to all history (U8); conservative intra-bar stop evaluation; fractional A uses
-Exness-calibrated spreads with no commission.
+1. **Action space X1 (§5.2):** factorized direction + log-scaled gross, range 10⁻⁴…10⁴×, init ≈ 1×.
+2. **A margin default (§5.4):** A-reference schedule (1:2000 for FX/gold, fixed margins for
+   BTC/NAS100), with unlimited-margin as a variant. Or should the unlimited-margin variant be the
+   primary?
+3. **Margin rejection (§5.5):** atomic rejection of all increases (recommended) vs. proportional
+   scale-to-fit.
+4. **Legal entity:** supply it once verified.
 
 ---
 
-## 14. Milestone 1 (Phase 0 + Phase 1), no credentials required
+## 14. Unresolved specifications (block B results, not Phase 1)
+
+| # | Item | Resolve via |
+|---|---|---|
+| U1 | Legal entity → stop-out, leverage options, restrictions | you |
+| U2 | BTCUSDc availability and contract | official page copy; tick-history symbol list |
+| U3 | USTECc availability and contract | same |
+| U4 | XAUUSDc contract and pip value | official spec; tick digits |
+| U5 | Unlimited eligibility conditions and margin formula | official Leverage page copy |
+| U6 | HMR windows, bands, historical news calendar | official HMR page; choose calendar source |
+| U7 | Stop-out closing order | official page / support |
+| U8 | Swap values, swap-free eligibility | official tables (snapshot) |
+| U9 | Cent symbols in tick history vs. Standard spreads | tick-history symbol list |
+| U10 | Rollover time and server time zone | official page; tick timestamps |
+| U11 | Sessions and daily breaks | official pages; tick gaps |
+| U12 | Live price source for C | Phase 5 |
+| U13 | Dukascopy BTC history start | on download |
+| U14 | Exness behaviour on insufficient margin (reject vs. partial) | official page / later demo |
+| U15 | How equity-tier leverage changes apply to open positions | official Leverage page |
+| U16 | A-reference fixed margins for BTC and NAS100 | official Cryptocurrencies/Indices pages |
+
+Assumptions until resolved: Cent spreads ≈ Standard spreads; swaps from a current snapshot;
+conservative intra-bar evaluation; MT5-style rejection on insufficient margin.
+
+---
+
+## 15. Milestone 1 (Phase 0 + Phase 1), no credentials required
 
 | Step | Deliverable | Exit criteria |
 |---|---|---|
-| 1.0 | ADRs; `simulator-spec.md`; environment configs A/B/C | approved by you |
-| 1.0a | Hardware assessment (§15) | resource plan agreed |
-| 1.1 | Profile system: fractional + modular Exness profiles, per-field status, verified-spec guard, `exness-spec-verification.md` skeleton | unit tests; guard tests |
-| 1.2 | `accounts/` + `execution/` on synthetic prices (A and B mechanics) | test groups 2–9, 11, 12, 14 green |
-| 1.3 | Dukascopy pipeline (local download) + data-quality report | §9.1 green |
-| 1.4 | Exness tick import + spread calibration (first symbols: EURUSD, GBPUSD, USDJPY, XAUUSD) | calibration validation passes |
-| 1.5 | `replay/` + `interface/` (120 × M5) + `world/` on real data | test groups 1, 10, 15 green |
-| 1.6 | Baselines in A (and B with the `unverified` region, sensitivity-tagged) | group 13 green; report reviewed |
+| 1.0 | ADRs; `simulator-spec.md`; environment, margin and experiment configs | approved |
+| 1.0a | Hardware assessment (§16) | resource plan agreed |
+| 1.1 | Profile system (fractional, A-reference margin, modular Exness), verified-spec guard | unit + guard tests |
+| 1.2 | `accounts/` + `execution/` + uncapped `interface/` actions on synthetic prices | groups 2–9, 11, 12, 14 green |
+| 1.3 | Dukascopy pipeline (local) + quality report | §10.1 green |
+| 1.4 | Exness tick import + spread calibration (EURUSD, GBPUSD, USDJPY, XAUUSD first) | calibration validation |
+| 1.5 | `replay/` + observation (120 × M5) + `world/` on real data | groups 1, 10, 15 green |
+| 1.6 | Baselines in A (uncapped and benchmark caps) and B (`unverified`, sensitivity-tagged) | group 13 green; report reviewed |
 
-Phase 2 (Gym env + synthetic experiments S1–S6 + first PPO agent) starts only after sign-off.
+Phase 2 (Gym env, S1–S7, first PPO agent) starts after sign-off.
 
 ---
 
-## 15. Hardware assessment (step 1.0a)
+## 16. Hardware assessment (step 1.0a)
 
-Please run on the training machine and paste the output, plus RAM size and GPU model/VRAM:
+Run on the training machine and paste the output, plus RAM size and GPU model/VRAM:
 
 ```bash
 python -c "import os,platform,shutil;print(platform.platform());print('cpu',platform.processor(),os.cpu_count(),'threads');print('disk free GB',round(shutil.disk_usage('.').free/1e9))"
@@ -563,14 +668,14 @@ python -c "import torch;print('torch',torch.__version__,'cuda',torch.cuda.is_ava
 
 | Resource | Minimum | Comfortable | Driver |
 |---|---|---|---|
-| Disk | 10 GB | 50 GB+ | Dukascopy raw files, Parquet store (~0.5–1 GB), Exness tick months (large), run logs |
-| RAM | 8 GB | 16–32 GB | aligned M1 arrays ≈ 1 GB float32 + parallel envs |
-| CPU | 4 cores | 8+ cores | the simulator is CPU-bound |
-| GPU | none | CUDA GPU ≥ 6 GB | larger encoders, many agents |
+| Disk | 10 GB | 50 GB+ | raw Dukascopy files, Parquet (~0.5–1 GB), Exness ticks, per-decision logs |
+| RAM | 8 GB | 16–32 GB | aligned arrays ≈ 1 GB + parallel envs |
+| CPU | 4 cores | 8+ cores | CPU-bound simulator |
+| GPU | none | CUDA ≥ 6 GB | larger encoders, many agents |
 
-Ballpark: the 2018–2022 range at 5-minute decisions is ≈ 0.3–0.5 M decision steps per pass. PPO
-budgets of 10–50 M steps per agent mean hours per agent on a mid-range CPU. Benchmarks come before
-any long run.
+Note: uncapped training produces many short (death-terminated) episodes, and per-decision
+logging (§5.7) adds roughly 1–2 GB per 100 M decision rows (compressed). Log retention per run is
+configurable.
 
 ---
 
