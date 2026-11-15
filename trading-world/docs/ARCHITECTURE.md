@@ -1,458 +1,439 @@
 # Autonomous Multi-Agent Trading World — Phase 0 Architecture & Plan
 
-Status: **Revision 2, for review.** It includes the decisions of 2026-11-15 (§12) and a researched Exness
-specification (§5). No implementation code until this revision is approved.
+Status: **Revision 3, for review.** Phase 1 does not start until this revision is approved.
 
 Change log
 - **r1**: initial architecture, critique and plan.
-- **r2**: recorded decisions 1–7. Replaced generic broker assumptions with researched Exness
-  specifications and a verification status for each fact (§5). Revised the $10-account analysis
-  (Cent accounts change it substantially). Added the "Dukascopy price path + Exness cost model"
-  data design (§5.6), a hardware-assessment step (§13), Stage D account-mixing issues (§5.5) and
-  new open questions (§12.2).
+- **r2**: decisions 1–7; researched Exness specifications with verification status; Cent-account
+  analysis; Dukascopy + Exness cost-model design; hardware assessment.
+- **r3**: decisions 8–14 (§12.1). Formal definition of the three environments A/B/C (§1).
+  Cent-only Stage D. Modular regional configs until the legal entity is verified. MetaApi
+  deferred, so Phase 1 needs no credentials. Observation = 120 × M5 (configurable).
+  Exness 1:Unlimited account leverage and its conditions (§6.3). Verified-spec guard (§6.6).
+  Simulator test groups and synthetic-market experiments made explicit (§9).
 
 ---
 
 ## 0. Summary
 
-The vision is buildable. The key conclusions after the Exness research:
-
-1. **On an Exness Standard Cent account, a $10 agent can trade the three FX pairs even at L = 3.**
-   One Cent lot is 0.01 of a standard lot, and the minimum is 0.01 Cent lots, so the smallest EUR/USD
-   position is about €10 (≈ $11.6) of notional. With a $30 cap (L = 3 × $10), the agent can hold
-   0, 1 or 2 minimum units per FX pair. **Position sizing is therefore very coarse: about 1.2× leverage
-   per step.** Gold (smallest ≈ 0.01 oz ≈ $40) does not fit at L = 3 but does at L = 100. BTC and
-   NAS100 availability on Cent accounts is contradictory in Exness's own documentation and must be
-   verified on a demo account (§5.2).
-2. **Exness's stop-out level is 0%, so the project's death rule (equity ≤ 5% of initial) always fires
-   first.** Broker stop-out and negative balance protection only matter when a price gap jumps the
-   account straight past the 5% floor.
-3. **Agents train on fractional sizes but Stage D uses coarse Cent lots.** That is a deliberate
-   train/evaluation mismatch. Stage D must measure how much of a learned behaviour survives
-   quantization. A quantization-aware fine-tuning step is an optional experiment (§6.5).
-4. **On historical data this is not a multi-agent market.** It is N independent price-taker
-   experiments on a shared tape. Behavioural diversity comes from seeds, learners, rewards,
-   observation settings and population-based evolution (§3.4).
-5. **"No predefined trading knowledge" can only be approximated.** The observation encoding,
-   architecture, decision interval and reward function are inductive biases. They are documented and
-   varied experimentally (§4).
-6. **With many agents, some will look profitable by luck.** Success criteria are pre-registered and
-   tested against null distributions (§7.4).
+1. **Three environments, never mixed** (§1): **A** fractional training (all six instruments, 3×
+   cap); **B** Exness Cent Stage D (only verified Cent instruments, real specs, regional rules);
+   **C** live virtual monitoring (live prices, simulated execution, **no order path at all**).
+2. **On an Exness Cent account, a $10 agent can trade FX even at 3×**, but very coarsely:
+   0, ±1.2× or ±2.3× of equity per FX pair. Gold needs ~$40 of notional. BTC and NAS100 availability
+   on Cent is contradictory in Exness's own documentation and stays **excluded from B until verified**.
+3. **The 5% death threshold is the experiment's survival rule.** Exness stop-out (0%, or 20% for
+   some entities) and negative balance protection are separate broker mechanics. Because death
+   fires at 5%, broker stop-out matters only on gaps.
+4. **Exness 1:Unlimited leverage affects only broker margin in B. It does not change the agent's
+   exposure cap.** It is conditional (equity threshold, eligibility, entity, instrument type,
+   Higher Margin Requirement periods), so B models those conditions explicitly (§6.3).
+5. **Phase 1 needs no broker credentials.** It uses synthetic data, Dukascopy history, official
+   Exness tick history and documented specs. Environment B refuses to run while any required spec
+   is unverified (§6.6).
+6. On historical data this is N independent price-takers on a shared tape, not an interacting
+   market (§4.4). "No trading knowledge" is approximated and every remaining bias is documented
+   (§5). Success claims are pre-registered and tested against null distributions (§8.4).
 
 ---
 
-## 1. Critique of the specification
+## 1. The three environments
 
-| # | Issue | Why it matters | Resolution |
+| | **A. Fractional training** | **B. Exness Cent Stage D** | **C. Live virtual monitoring** |
 |---|---|---|---|
-| 1 | $10 + L = 3 + real lot sizes | With standard lots nothing is tradable | **Decided:** fractional sizes for training; Exness Cent specs for Stage D (§5). FX is tradable on Cent at L = 3, coarsely |
-| 2 | Normalized equity 1.0 | Lot minimums, per-lot costs and swaps are not scale-invariant | The simulator accounts in **real USD (and USC for Cent)**. Normalization applies only in observations and rewards |
-| 3 | Multi-agent "world" on replay | Price-takers cannot interact | Accept the price-taker model. Diversity through seeds, learners, rewards and evolution |
-| 4 | "No risk rules" vs. reward design | The reward encodes risk preference | Log-wealth baseline; penalty variants labelled as shaping (§6) |
-| 5 | Target exposure re-evaluated every step | Implicit rebalancing rule plus churn costs | Execute only deltas ≥ one lot step (§5.7) |
-| 6 | Decision frequency | M1 decisions are cost-dominated | **Decided:** 5-minute decisions by default; 1, 15 and 60 minutes configurable. M1 remains the fill and valuation clock |
-| 7 | Observation window | 120 × M1 = only 2 hours | Proposed default: 120 bars **at the decision resolution** (5m → 10 hours), built from completed M1 bars. Ablations: 120 × M1, multi-resolution (§12.2) |
-| 8 | Different trading hours | BTC 24/7; FX 24/5; indices and gold have daily breaks | UTC minute clock + per-instrument `tradeable` mask from Exness session tables; no forward-filled tradeable prices |
-| 9 | Death at 5% vs. broker stop-out | **Exness stop-out = 0%**, so death fires first | Death rule as specified; Exness stop-out and NBP modelled for gaps (§5.4) |
-| 10 | "Zombie" accounts | Alive, but cannot afford the minimum lot on any instrument | Track an `incapacitated` status and duration |
-| 11 | Negative balance protection | A free option to gamble if combined with resets | **Decided:** Exness NBP in the broker profile, plus a separate no-NBP stress scenario |
-| 12 | Financing | Historical swap rates unavailable | Current Exness swap tables from the demo account (§5.6), Exness swap-free status for majors modelled as a variant; documented approximation |
-| 13 | Success criterion | Undefined | Pre-registered (§7.4) |
-| 14 | Compute | Cloud session is ephemeral | **Decided:** develop locally first; hardware assessment before long runs (§13) |
-| 15 | No real orders | Safety | No order-sending code path; the MetaApi adapter is restricted to read-only endpoints by an allowlist and a test |
-| 16 | Train/serve skew | Live bars ≠ historical bars | Parity test on an overlapping period |
-| 17 | Bid/ask data | Mid-only data makes costs fictional | **Decided:** Dukascopy bid/ask M1 from 2018, with Exness data for cost calibration |
-| 18 | **New:** Stage D "Cent where supported, otherwise other Exness specs" | A real $10 account is **one** account of **one** type; it cannot be Cent for FX and Standard for BTC at once | Proposal in §5.5; needs your decision (§12.2) |
-| 19 | **New:** Higher Margin Requirement (HMR) periods | Exness raises margins around high-impact news; simulating that needs a historical news calendar | Configurable HMR windows; calendar data is a later addition. At L = 3 margin never binds on Exness leverage, so this only affects L = 100 tests |
-| 20 | **New:** Exness legal entity | Kenya/Jordan entities differ (stop-out 20%, leverage cap 1:400, BTCUSDc blocked for KE) | The broker profile is per entity; which entity applies to you is needed (§12.2) |
+| Purpose | learning (Stage A) and unseen-history tests (Stage B) | realistic small-account evaluation (spec Stage D) | forward test on incoming prices (spec Stage C) |
+| Instruments | all six: XAU/USD, EUR/USD, GBP/USD, USD/JPY, BTC/USD, NAS100 | **only instruments verified as available on the Exness Standard Cent account** for the verified entity; unverified ones are `tradeable = 0` | the instruments of the environment the agent is being monitored under (A or B rules) |
+| Starting capital | $10 (normalized 1.0 internally) | $10 = 1,000 USC | $10 virtual |
+| Position sizing | fractional (continuous), tiny minimum trade threshold | Exness Cent min lot 0.01, lot step 0.01, contract specs; round toward zero | per A or B profile |
+| Exposure cap | **L = 3** (stress: L = 100) | the agent's cap is inherited from its experiment (3 or 100); **broker leverage 1:Unlimited** affects margin only | per profile |
+| Costs | realistic spread (calibrated to Exness), slippage, swaps; commission 0 (Exness Standard Cent has none) | verified Exness Cent spreads (calibrated), commissions (none), verified swaps and triple days | per profile |
+| Margin / stop-out | margin model not binding at 3×; **no broker stop-out** | verified Exness margin rules: leverage-based vs. fixed-margin instruments, equity tiers, HMR, stop-out level of the verified entity | per profile |
+| Negative balance | **no NBP** (gap losses stay negative; reward ε-floored) | **Exness NBP** per verified rule + separate **no-NBP stress** variant | per profile |
+| Death | equity ≤ 5% of initial | equity ≤ 5% of initial (evaluated before broker stop-out) | equity ≤ 5% of initial |
+| Data | Dukascopy M1 bid/ask 2018 → present; Exness-calibrated spreads | same price path; Exness-calibrated spreads; Cent specs | live price feed (source TBD, §7.3); same bar schema |
+| Real orders | impossible | impossible | **impossible**: no broker trading client is imported; enforced by a test |
+
+Rules:
+- An agent trained in A is evaluated in B **without retraining**. The gap is reported as the
+  quantization/realism penalty (§7.5).
+- Profiles are data (YAML), not code. One simulated account always uses exactly **one** profile;
+  mixing Cent and Standard specs in one account is rejected by config validation.
 
 ---
 
-## 2. Is the experiment likely to "work"? (setting expectations)
+## 2. Critique of the specification (status after r3)
 
-Most agents will probably learn to stay flat, die, or capture drift (beta) that disappears out of
-sample. At 5-minute decisions with Cent-account spreads, costs remain a large share of typical
-moves. A null result is a valid finding, so the design makes it **measurable and trustworthy**: the
-learner is first proven on synthetic markets with planted structure (§8.3), so that failure on real
-data can be attributed to the market and not to a bug.
+| # | Issue | Resolution |
+|---|---|---|
+| 1 | $10 + L = 3 + real lots | A is fractional; B is Cent-only, where FX is tradable at 3× (coarsely) |
+| 2 | Normalized equity is not scale-invariant | Ledger in real USD/USC; normalization only in observations and rewards |
+| 3 | Multi-agent world on replay | Price-takers; diversity via seeds, learners, rewards and evolution (§4.4) |
+| 4 | Reward = risk preference | Log-wealth baseline; shaping variants labelled (§7) |
+| 5 | Hidden rebalancing in target exposure | Only deltas ≥ one lot step execute (§6.7) |
+| 6 | Decision frequency | 5-minute default; 1, 15, 60 configurable |
+| 7 | Observation window | **120 × M5 bars (10 h), configurable** (length and resolution) |
+| 8 | Trading sessions | UTC clock + per-instrument tradeable mask |
+| 9 | Death vs. stop-out | Death at 5% is the experimental criterion; stop-out/NBP modelled separately (B only) |
+| 10 | Zombie accounts | `incapacitated` status tracked (relevant in B with min lots) |
+| 11 | NBP as a free option | A: no NBP. B: Exness NBP + no-NBP stress |
+| 12 | Historical swaps unavailable | Documented snapshot approximation; swap-free majors as a variant |
+| 13 | Success criteria | Pre-registered (§8.4) |
+| 14 | Compute | Local first; hardware assessment pending (§14) |
+| 15 | No real orders | No order path in the package, test-enforced |
+| 16 | Train/serve skew in C | Bar-schema parity test |
+| 17 | Mid-only data | Dukascopy bid/ask |
+| 18 | Mixing account types | **Resolved: Cent-only B** |
+| 19 | HMR periods need a news calendar | Configurable HMR windows; calendar source unresolved (§13) |
+| 20 | Legal entity unknown | **Modular regional profiles; B is blocked until verified** (§6.5) |
+| 21 | **New:** "Unlimited leverage" vs. exposure cap | Interpreted as the Exness **account leverage setting** in B. The agent's exposure cap L stays 3 (stress 100). Needs your confirmation (§12.2) |
 
 ---
 
-## 3. Architecture
+## 3. Expectations
 
-### 3.1 Component map
+Most agents will likely learn to stay flat, die, or capture drift that does not generalize.
+At 5-minute decisions, turnover costs dominate small edges. The design makes a null result
+measurable and trustworthy, and proves the learner on synthetic markets first (§9.3).
+
+---
+
+## 4. Architecture
+
+### 4.1 Component map
 
 ```
-                ┌──────────────── offline ───────────────┐
- Dukascopy M1 → │ 1 Market Data Engine (download, clean, │ → Parquet store (immutable, hashed)
- bid/ask        │   align, validate, session masks)      │
- Exness ticks → │   Cost-model calibration (spreads)     │ → calibrated cost tables
- Exness demo  → │   Spec snapshot (contract, swaps, ...) │ → versioned broker profile
- (read-only)    └────────────────────────────────────────┘
+                ┌──────────────── offline ─────────────────┐
+ Dukascopy M1 → │ 1 Market Data Engine (download, clean,   │ → Parquet store (immutable, hashed)
+ bid/ask        │   align, validate, session masks)        │
+ Exness ticks → │   Spread calibration (Exness cost model) │ → calibrated cost tables (hashed)
+ Exness specs → │   Broker profile build + verification    │ → profile YAML with per-field status
+ (documented)   └──────────────────────────────────────────┘
                                    │
-                                   ▼
             ┌──────────── deterministic core (no learning) ───────────┐
-            │ 2 Replay Engine: UTC clock, cursor, past-only windows   │
-            │ 3 Execution Engine: bid/ask fills, latency, slippage,   │
-            │   lot rounding, commissions                             │
-            │ 4 Account Sim: ledger, margin, financing, stop-out,     │
-            │   NBP, death, FX/cent conversion; one Account per agent │
-            │   World: one clock, N accounts, event log               │
+            │ 2 Replay: UTC clock, cursor, past-only windows          │
+            │ 3 Execution: bid/ask fills, latency, slippage, lots     │
+            │ 4 Accounts: ledger, margin, swaps, stop-out, NBP, death,│
+            │   USD/USC/JPY conversion; World: one clock, N accounts  │
             └─────────────────────────────────────────────────────────┘
                      ▲ actions                    │ observations
             ┌────────┴─────────────┐   ┌──────────▼───────────┐
-            │ 6 Action Interface   │   │ 5 Observation Iface  │   ← the ONLY surface agents see
+            │ 6 Action Interface   │   │ 5 Observation Iface  │   ← only surface agents see
             └────────▲─────────────┘   └──────────┬───────────┘
             ┌────────┴────────────────────────────▼────────────┐
-            │ 7 Gymnasium Env (one agent ↔ one account)        │
-            │   + pluggable reward module                      │
+            │ 7 Gymnasium Env + pluggable reward               │
             └────────▲─────────────────────────────────────────┘
-   8 Training (PPO → SAC, ES; per-agent params, optimizer, seed)
-   9 Evaluation (walk-forward, null distributions, stress tests, behaviour analysis)
-  10 Tracking (run registry: config + git hash + data hash + broker-profile hash + seeds)
-  11 Dashboard (read-only over the tracking store; Phase 6)
+   8 Training (PPO → SAC, ES)    9 Evaluation (A → B transfer, walk-forward, null distributions)
+  10 Tracking (config, git, data, cost-table and profile hashes, seeds)   11 Dashboard (Phase 6)
+  12 Live virtual feed (Phase 5, environment C; read-only market data only)
 ```
 
-### 3.2 Key design principles
+### 4.2 Design principles
 
-- **Pure, deterministic core.** All randomness goes through injected, seeded generators. Same
-  config + data hash + broker-profile hash + seed ⇒ bit-identical event log.
-- **Event-sourced accounting.** Fills, commissions, swaps, stop-outs, NBP resets and deaths are
-  immutable events. Balances are derived from them, so every run can be audited.
-- **Hard isolation boundary.** Agents only receive an `Observation` and return an `Action`. Each
-  agent has its own parameters, optimizer, buffers and RNG stream
-  (`SeedSequence(experiment_seed).spawn(n)`). **No parameter sharing.**
-- **Broker profiles are data, not code.** Exness specs live in versioned YAML snapshots with a
-  source and verification status per field, so specs can be updated without code changes.
-- **Simulator first.** The simulator has no Gymnasium or PyTorch dependency.
-- **Performance by design.** Pre-aligned `float32` arrays `[time, instrument, field]`; zero-copy
-  window views; numba only if profiling shows the need.
+- **Deterministic core**: seeded generators only; same inputs ⇒ bit-identical event log.
+- **Event-sourced accounting**: fills, costs, swaps, stop-outs, NBP resets and deaths are immutable events.
+- **Isolation**: agents see only `Observation` → `Action`. Each agent has its own parameters, optimizer,
+  buffers and RNG stream (`SeedSequence(seed).spawn(n)`); no parameter sharing.
+- **Profiles as data**: broker, region and environment profiles are versioned YAML, and every field
+  carries `value`, `source`, `retrieved`, `status`.
+- **Simulator first**: no Gymnasium or PyTorch imports in the core.
+- **Performance**: pre-aligned `float32` arrays, zero-copy windows, numba only if profiling shows the need.
 
-### 3.3 Technology stack
+### 4.3 Technology stack
 
-| Concern | Choice | Reason |
+Python 3.11+, NumPy (+ numba if needed), Polars/pandas → Parquet, DuckDB for log queries,
+Pydantic + YAML configs, Gymnasium, PyTorch with Stable-Baselines3 for the first PPO/SAC, own ES/GA
+loop, pytest + Hypothesis, own run registry + TensorBoard, Streamlit → FastAPI for the dashboard.
+Rationale as in r2: well-tested components where bugs are costly (RL), own code where control matters
+(simulator, ledger).
+
+### 4.4 What "multi-agent" means
+
+Price-takers on a shared tape. Running them together is mathematically identical to running them
+alone, and a test enforces that. Diversity comes from seeds, learners, rewards,
+observation/decision settings and population-based evolution, with selection only on account outcomes.
+
+---
+
+## 5. Learning without predefined strategies
+
+- **Observation (default):** for each of the six instruments, the last **120 × M5 bars** (configurable
+  length and resolution), built only from completed M1 bars. Per bar: mid log return, range/mid,
+  body/mid, spread/mid, relative tick volume, tradeable flag. Plus own account state (log equity /
+  initial, free-margin fraction, margin level, exposure per instrument, unrealized PnL / equity, time
+  in position, margin-call flag where the profile has one). Optional time-of-day / day-of-week (ablated).
+- **Not given:** indicators, signals, absolute prices, dates, other agents, simulator internals,
+  cost-model parameters, future bars.
+- **Documented biases:** feature transform, network architecture, window and decision interval,
+  reward, learner. All are ablated.
+- The engine never trades for the agent except for enforced constraints (margin rejection, broker
+  stop-out in B, NBP in B, death), each logged with a reason.
+
+---
+
+## 6. Broker specification: Exness (environment B)
+
+### 6.0 Verification policy
+
+- Direct fetches of Exness's help center return HTTP 403 from this environment. r2 facts came from
+  search-engine extracts of official pages, cross-checked, and Exness's pages **contradict each
+  other** on several points.
+- Status per field: **✅ verified** (official source, consistent, recorded with URL and date) ·
+  **⚠️ conflicting** · **❓ unverified/derived** · **⛔ unknown**.
+- **Verification sources for Phase 1 (no credentials needed):** (1) official Exness help-center and
+  product pages, copied into `docs/exness-spec-verification.md` with retrieval date. Since automated
+  fetches are blocked, these can be saved by you from a browser, or pasted. (2) Official Exness
+  tick history (bid/ask), which empirically confirms symbol existence, digits, trading sessions and
+  spreads. (3) **Later, optional:** a read-only Exness demo snapshot via MetaApi (deferred, decision 10).
+
+### 6.1 Account-level facts (Standard Cent)
+
+| Item | Value | Status |
 |---|---|---|
-| Language | Python 3.11+ | Spec requirement |
-| Arrays | NumPy (+ numba if needed) | Deterministic and fast |
-| Data prep | Polars/pandas → Parquet (pyarrow) | Columnar, hashed files |
-| Log queries | DuckDB over Parquet | SQL without a server |
-| Config | Pydantic + YAML | Validated experiment and broker configs |
-| RL env | Gymnasium | Standard API, `check_env` |
-| Learning | PyTorch; Stable-Baselines3 for the first PPO/SAC; own code later if needed | Well tested, which lowers RL bug risk |
-| Evolution | Own ES/GA loop in PyTorch (or `evotorch`) | Gradient-free; fits the "survival" framing |
-| Tests | pytest + Hypothesis | Property tests for accounting invariants |
-| Tracking | Own run registry + TensorBoard (MLflow optional) | Few dependencies, reproducible |
-| Dashboard | Streamlit → FastAPI + frontend if needed | Read-only |
+| Account currency | USC; $10 = 1,000 USC | ✅ |
+| Lot | 1 Cent lot = 0.01 standard lot (≈ 1,000 units of base currency) | ✅ |
+| Volume | min 0.01 (ETHUSDc 0.1); max 200 lots | ✅ |
+| Commission | none | ✅ |
+| Spread | "from 0.3 pips" (marketing floor; real distribution from tick calibration) | ✅ floor / ⛔ distribution |
+| Margin call | 60% | ✅ |
+| Stop-out | 0% default; **20% for Exness (KE) and Exness (JO)**; stocks up to 100% in high-risk periods | ✅ |
+| Stop-out closing order | reportedly most unprofitable first | ❓ |
+| NBP | balance reset to 0 only after all orders were closed by stop-out and balance < 0 | ✅ |
+| Swap timing | 21:00 GMT+0 summer / 22:00 GMT+0 winter | ✅ (Exness) / ⚠️ (third-party: 00:00 server) |
+| Triple swap | FX Wednesday (USDCAD Thursday); indices Friday; crypto Friday | ✅ |
+| Swap-free | majors (and most minors) swap-free per Exness; status may depend on behaviour | ✅ / ❓ |
+| HMR window | 15 min before high-impact news → 90 s or 5 min after | ⚠️ |
 
-### 3.4 What "multi-agent" means here
+### 6.2 Instruments on the Cent account
 
-All agents are price-takers on the same tape. Running them together is operationally convenient and
-mathematically identical to running them alone, which a test enforces. Diversity comes from seeds,
-learners (PPO / SAC / ES), reward variants, observation and decision settings, and
-population-based evolution where survivors reproduce with mutation. Selection pressure comes only
-from account outcomes.
-
----
-
-## 4. How agents learn without predefined strategies
-
-**Agents get:**
-- market information per instrument over the window: bid/ask OHLC transformed into scale-free
-  quantities (mid log returns, range/mid, body/mid, spread/mid, relative tick volume, tradeable flag);
-- their own account state, as shown on a trading terminal: log equity / initial, free-margin
-  fraction, margin level, current exposure per instrument, unrealized PnL / equity, time since each
-  position was opened, and the margin-call flag (Exness margin call is at 60%);
-- optionally, time-of-day and day-of-week (public information; ablated).
-
-**Agents do not get:** indicators, signals, absolute price levels, dates, other agents' data, or
-simulator internals (fill model, slippage RNG, future bars, cost-model parameters).
-
-**Remaining inductive biases (documented and ablated):** feature transform, network architecture
-(per-instrument 1D-CNN/GRU encoder + account MLP vs. plain MLP), window and decision interval,
-reward function, learning algorithm.
-
-Nothing in the engine opens, closes or resizes positions for an agent, **except** enforced account
-constraints: margin rejection, broker stop-out, NBP and death. Each is logged with a reason.
-
----
-
-## 5. Exness broker specification (researched 2026-11-15)
-
-### 5.0 How these facts were verified, and the limits
-
-- Exness's help center (`get.exness.help`) and site **refuse automated page fetches (HTTP 403)**
-  from this environment. Facts below come from search-engine extracts of Exness's official pages
-  plus third-party sources, cross-checked. **Exness's own pages contradict each other on several
-  points**, which are marked as such.
-- Status legend: **✅ confirmed** = official Exness source, consistent across sources ·
-  **⚠️ conflicting** = official sources disagree · **❓ unverified** = third-party only, or derived.
-- **Nothing marked ⚠️ or ❓ is used in Stage D until it is confirmed** against an Exness MT5
-  Standard Cent **demo account**, through the read-only MetaApi connection already available to
-  this project (symbol specification: contract size, min/max volume, step, digits, swaps,
-  triple-swap day, margin rates, trading sessions; plus live bid/ask for spreads). See step 1.0b in §11.
-
-### 5.1 Account-level specifications
-
-| Item | Standard Cent | Standard | Status |
-|---|---|---|---|
-| Account currency | US cents (USC); $10 = 1,000 USC | USD | ✅ |
-| Lot definition | 1 Cent lot = 0.01 standard lot (≈ 1,000 units of base currency) | 1 lot = 100,000 units (FX) | ✅ |
-| Min volume | 0.01 lot (ETHUSDc: 0.1) | 0.01 lot | ✅ |
-| Max volume | 200 lots (ETHUSDc 2,000) | 200 lots typical | ✅ (Cent) |
-| Commission | none; costs in spread | none | ✅ |
-| Spread | "from 0.3 pips" | "from 0.2 pips" (typical marketing figure) | ✅ / ❓ |
-| Margin call | 60% | 60% | ✅ |
-| Stop-out | **0%** (KE and JO entities: 20%; stocks up to 100% in high-risk periods) | **0%** (same exceptions) | ✅ |
-| Stop-out closing order | reported as "most unprofitable position first" | same | ❓ |
-| Negative balance protection | balance restored to 0 **only** when all orders were closed by stop-out and balance is negative; a deposit made while negative equity persists is not covered | same | ✅ |
-| Max leverage (leverage-based instruments) | equity < $5,000: 1:2000 default, 1:Unlimited if eligible · $5k–30k: 1:2000 · $30k–100k: 1:1000 · ≥ $100k: 1:500 · KE entity: 1:400 | same | ✅ tiers / ⚠️ Unlimited-eligibility conditions |
-| Platforms | MT4, MT5, Exness Terminal (BTC and indices: MT5 / Exness Terminal only) | MT4, MT5 | ✅ / ⚠️ |
-| Swap timing | 21:00 GMT+0 (summer) / 22:00 GMT+0 (winter) | same | ✅ (Exness help) / ❓ (some third-party sources say 00:00 server time) |
-| Triple swap | FX Wednesday (USDCAD Thursday); indices Friday; crypto Friday; energies none | same | ✅ |
-| Swap-free | Exness states the seven major FX pairs (and most minors) can be traded swap-free; Islamic-country accounts are swap-free by default; third parties say swap-free status can depend on trading behaviour | same | ✅ / ❓ |
-| Higher Margin Requirements (HMR) | from 15 min before a high-impact release to **90 s or 5 min after** (two official pages disagree); gold band 1:200–1:1000 | same | ⚠️ window |
-
-### 5.2 Instrument mapping
-
-| Project instrument | Exness Cent symbol | Availability on Cent | Smallest position (real money) | Margin type | Status |
+| Project instrument | Cent symbol | In B? | Smallest position | Margin type | Status |
 |---|---|---|---|---|---|
-| EUR/USD | `EURUSDc` | MT4/MT5 | 0.01 lot ≈ €10 ≈ $11.6 | leverage-based (equity tiers) | ✅ availability, lot maths ✅ |
-| GBP/USD | `GBPUSDc` | MT4/MT5 | ≈ £10 ≈ $13 | leverage-based | ✅ |
-| USD/JPY | `USDJPYc` | MT4/MT5 | $10; P&L in JPY → USC | leverage-based | ✅ |
-| XAU/USD | `XAUUSDc` | MT4/MT5 | standard XAUUSD contract = 100 oz, so 0.01 Cent lot ≈ 0.01 oz ≈ $40 at $4,000/oz | leverage-based; HMR band 1:200–1:1000 | ✅ availability / ❓ derived contract |
-| BTC/USD | `BTCUSDc` | **MT5 only. One official statement says "Trading on BTCUSDc is unavailable"; blocked for the KE entity** | reported contract 0.01 BTC per lot (unclear whether real or cent-denominated) | **fixed margin** (independent of account leverage); HMR cap 1:200–1:400 | ⚠️ |
-| NAS100 | `USTECc` | **Listed for MT5 / Exness Terminal, but the Indices page also says indices are not offered on Standard Cent** | standard `USTEC` contract = 1 (reported min 0.05 lot); Cent contract unknown | **fixed** 0.25% (1:400) for USTEC; HMR 1:50–1:100 reported | ⚠️ |
+| EUR/USD | EURUSDc | **yes, once spec fields are verified** | ≈ €10 | leverage-based | availability ✅ |
+| GBP/USD | GBPUSDc | yes, once verified | ≈ £10 | leverage-based | ✅ |
+| USD/JPY | USDJPYc | yes, once verified | $10 | leverage-based | ✅ |
+| XAU/USD | XAUUSDc | yes, once verified | ≈ 0.01 oz (derived from a 100 oz standard contract) | leverage-based; HMR band | availability ✅ / contract ❓ |
+| BTC/USD | BTCUSDc | **excluded until verified** | reported 0.01 BTC contract (denomination unclear) | fixed margin | ⚠️ (MT5-only listing vs. "unavailable"; blocked for KE) |
+| NAS100 | USTECc | **excluded until verified** | ⛔ | fixed 0.25% for USTEC (standard) | ⚠️ (listed vs. "indices not offered on Cent") |
 
-Fallback specs (Standard account) per decision 2, if a Cent symbol is unavailable:
-`BTCUSD` 1 lot = 1 BTC, min 0.01 (≈ $650 notional) · `USTEC` contract 1, min reported 0.05
-(≈ $1,000–1,250 notional) · `XAUUSD` 100 oz, min 0.01 (1 oz).
+### 6.3 Leverage: 1:Unlimited (decision 14) and its conditions
 
-### 5.3 Consequences for a $10 account (Stage D, Cent profile)
+**Interpretation (to confirm, §12.2):** "unlimited leverage" is the **Exness account leverage
+setting** used to compute broker margin in environment B. It does **not** remove the agent's
+exposure cap: `w_i = L·a_i / max(1, Σ|a_j|)` needs a finite L, and A is defined with L = 3. The cap
+for B runs is the one the agent was trained or stress-tested with (3 or 100).
 
-Max notional: **L = 3 → $30; L = 100 → $1,000.**
+What Exness documents about Unlimited (to be verified field by field):
 
-| Instrument | Smallest position | Tradable at L = 3? | Exposure steps at L = 3 | Tradable at L = 100? |
-|---|---|---|---|---|
-| EUR/USD (c) | ≈ $11.6 | yes | 0, ±1.16×, ±2.3× | yes, ≈ 0.116× steps |
-| GBP/USD (c) | ≈ $13 | yes | 0, ±1.3×, ±2.6× | yes |
-| USD/JPY (c) | $10 | yes | 0, ±1×, ±2×, ±3× | yes |
-| XAU/USD (c) | ≈ $40 | **no** | — | yes, ≈ 4× steps |
-| BTC/USD (c) | pending §5.2 | pending | pending | pending |
-| NAS100 (c) | pending §5.2 | pending | pending | pending |
-| BTC/USD (Standard fallback) | ≈ $650 | no | — | no ($650 needs 65×, allowed, but it is a single all-or-nothing step) |
-| NAS100 (Standard fallback) | ≈ $1,000+ | no | — | no / borderline |
-
-Margin practically never binds at L = 3: with 1:2000 leverage, $30 of FX notional needs $0.015 of
-margin. **Under Exness the constraints that matter for a $10 account are the project's L cap, lot
-quantization, spreads, swaps and the 5% death floor**, not broker margin.
-
-Costs: with no commission, cost = spread, and on a Cent account it scales with position size like on
-any account. The minimum EUR/USD Cent position (0.01 Cent lot = €10 real) moves $0.001 (0.1 USC) per
-pip. A 1-pip spread is ≈ 0.9 bps of notional, so a round trip at 2× leverage costs ≈ 1.8 bps of
-equity. That is small per trade, but **turnover compounds it**: at 5-minute decisions, 100 round
-trips a day would cost ≈ 1.8% of equity per day. (This corrects r1, where the "1–6% of the account
-per round trip" figure applied to *standard* 0.01 lots on a $10 account.) **Exact pip values are
-verified numerically on the demo account in step 1.0b.** Cent-account pip values are a classic
-source of factor-of-100 errors, so this is also a golden test (§8.2).
-
-### 5.4 Stop-out, NBP and death under Exness
-
-- **Death (project rule):** equity ≤ 5% of initial ($0.50 = 50 USC) ⇒ all positions closed at
-  market (bid/ask + slippage), account terminated, reason recorded.
-- **Exness stop-out (0%)** therefore only triggers if one bar **gaps** the account from above 5%
-  straight to ≤ 0 (weekend gap, illiquid session open). Positions are then closed at the gap price
-  (most unprofitable first, pending verification).
-- **NBP (Exness profile):** if the balance is negative after a full stop-out, it is reset to 0 and an
-  `nbp_reset` event is logged. The agent is dead either way.
-- **No-NBP stress profile:** the negative balance is kept and reported as a debt.
-- The intra-bar check uses each instrument's adverse extreme within the bar. This is conservative,
-  because extremes on different instruments may not be simultaneous; the approximation is documented.
-- **Margin call (60%)** is a flag in the observation only. It is not a forced action.
-- The entity-specific variant (KE/JO: stop-out 20%, leverage 1:400) is a separate profile.
-
-### 5.5 Stage D account-mixing problem (needs a decision)
-
-Decision 2 says: "Cent specs where supported, otherwise the applicable Exness specs". A real $10
-account is one account of one type, so a Cent account cannot also hold Standard-account BTC.
-Options:
-
-- **(a) Cent-only universe (recommended):** Stage D trades only the instruments the Cent account
-  actually offers (verified on demo). Unsupported instruments are not tradable, and the
-  observation still contains them, flagged `tradeable = 0`.
-- **(b) Hypothetical hybrid account:** one $10 ledger that uses Cent specs for some symbols and
-  Standard specs for others. This is not a real account; label it as hypothetical.
-- **(c) Two sub-accounts:** $10 split across a Cent account and a Standard account. Realistic but
-  changes the "$10 per agent" premise.
-
-### 5.6 Data design: Dukascopy price path + Exness cost model
-
-Prices and costs come from different sources, on purpose:
-
-- **Price path:** Dukascopy M1 **bid and ask** candles, 2018 → present, for EURUSD, GBPUSD, USDJPY,
-  XAUUSD, BTCUSD and USATECHIDXUSD (Nasdaq-100 CFD). It gives a long, consistent, gap-annotated
-  history. Dukascopy is reachable from this environment but rate-limits it (HTTP 429), so the bulk
-  download runs locally (decision 7). BTC history start date on Dukascopy to be verified on download.
-- **Exness cost model:** Exness publishes official **tick history** (bid/ask ticks; monthly zip
-  files per symbol, downloadable from its Tick History page, columns: Exness, Symbol, Timestamp,
-  Bid, Ask). From a calibration sample (e.g. the last 12–24 months) we estimate each instrument's
-  **Exness spread distribution by hour-of-week and volatility regime**. The simulator then
-  replaces Dukascopy's spread with this calibrated Exness spread, centred on the Dukascopy mid.
-  Whether Cent symbols have their own tick files, or match Standard spreads, is **❓ to verify
-  against the demo**.
-- **Exness specs snapshot:** contract sizes, volume limits, digits, swap long/short, triple-swap
-  day and trading sessions, read from the demo account through MetaApi (read-only endpoints).
-  Saved as a dated, hashed YAML profile.
-- **Calibration test:** simulated Exness spreads vs. the held-out Exness tick months, compared on
-  distribution quantiles per hour-of-week.
-- **Caveat:** swap rates are only available as current snapshots, not history. Historical swaps
-  are approximated by the snapshot (documented). Exness swap-free majors are a profile variant.
-
-### 5.7 From action to orders (no hidden rebalancing)
-
-```
-a ∈ [-1,1]^n  →  w_i = L·a_i / max(1, Σ|a_j|)               (gross exposure ≤ L)
-target_units_i = w_i · equity / (price_i · contract_size_i · fx_to_account_i)
-fractional profile: no rounding (min trade size threshold only, e.g. $0.01 notional)
-exness profiles   : round toward zero to lot_step; |target| < min_lot ⇒ 0
-delta_i = target_i − current_i ; execute only if |delta_i| ≥ lot_step_i
-ordering: reductions first, then increases
-margin check: increases beyond free margin are reduced to the largest affordable size (logged)
-```
-
-Fills: decision at the close of the decision bar → fill at the next **M1** bar's open; buys at ask,
-sells at bid; adverse slippage (base + range-scaled + seeded noise). Closed market ⇒ rejected and
-logged. Swaps at Exness rollover times, with triple days as above.
-
----
-
-## 6. Reward design
-
-### 6.1 Variants (all on **net-of-cost** equity)
-
-| ID | Reward per decision step | Expected behaviour |
+| Condition | Value | Status |
 |---|---|---|
-| R1 (baseline) | `log(max(E_t, ε·E_0) / E_{t-1})`, ε = 0.01 | Growth-optimal; penalizes variance and ruin. The ε floor keeps the reward finite at death and under no-NBP negative equity |
-| R2 (negative control) | `(E_t − E_{t-1}) / E_0` | Risk-neutral; expected to drive max leverage and death |
-| R3 | R1 − λ·Δ(drawdown) | Conservative; a labelled risk preference |
-| R4 | Differential Sharpe ratio | Smooth; can be gamed by near-zero variance |
-| R5 | Sparse terminal `log(E_T / E_0)` | No shaping; hard credit assignment |
+| Equity tiers | < $5,000: 1:2000 default, 1:Unlimited **if eligible**; $5k–30k 1:2000; $30k–100k 1:1000; ≥ $100k 1:500 | ✅ tiers |
+| Eligibility for Unlimited | equity below a threshold **plus** trading-history requirements; threshold reported as $5,000 by some sources and ~$1,000 by others | ⚠️ |
+| Entity caps | Exness (KE): max 1:400 | ✅ |
+| Instruments not affected | fixed-margin instruments (crypto, indices, some others) use a fixed margin regardless of account leverage | ✅ |
+| HMR periods | higher margin (e.g. gold 1:200–1:1000 band, crypto 1:200–1:400, indices 1:50–1:100 reported) overrides account leverage around high-impact news | ✅ existence / ⚠️ windows and bands |
+| Margin formula under Unlimited | ⛔ (how Exness computes "unlimited" margin, e.g. minimal vs. zero, and margin level under it) | ⛔ |
 
-Not used: trade-count bonuses, win-rate rewards, rewards for market presence, realized-PnL-only rewards.
+Modelling consequence: in B with Unlimited, margin will essentially never bind for FX at L = 3 or
+L = 100. The binding constraints are the agent's L cap, lot quantization, costs and the 5% death
+floor. HMR can still bind during news windows (only in L = 100 stress tests), so an HMR calendar
+is needed for B's high-leverage runs (§13).
 
-### 6.2 Reward-hacking surfaces
+The profile supports all leverage values (`1:Unlimited`, `1:2000`, `1:400`, …) so sensitivity runs
+can show whether results depend on Unlimited being available.
 
-| Exploit | Closure |
-|---|---|
-| Mid fills / stale prices / closed sessions | bid/ask fills, tradeable mask, rejection |
-| Favourable lot rounding | round toward zero |
-| Margin abuse between bars | checks at order time and intra-bar |
-| NBP as a free option | NBP only in the Exness profile; training default = no NBP + ε-floored log reward; no-NBP stress run |
-| Episode reset as a "free life" | episode ends at death; evaluation = one continuous life |
-| Weekend gaps | valuation at the first real quote |
-| Memorizing dates / levels | no absolute levels or dates in observations |
-| Optimizing the reward instead of the outcome | all variants judged on the same out-of-sample metrics |
-| Exploiting a cost-model artefact (e.g. hours where the calibrated spread is too low) | cost-robustness tests at 1.5× and 2×, and calibration tests (§5.6) |
+### 6.4 $10 account in B (Cent-only)
 
-### 6.3 Learner choice
+Max notional: L = 3 → $30; L = 100 → $1,000.
 
-PPO first (stable, continuous actions; use a tanh-squashed or Beta policy to avoid bound bias).
-Weaknesses: on-policy sample inefficiency and noisy rewards. Then SAC (off-policy, entropy
-regularized) and ES/GA (gradient-free, population-based) in Phase 3.
+| Instrument | Smallest position | L = 3 exposure steps | L = 100 |
+|---|---|---|---|
+| EURUSDc | ≈ $11.6 | 0, ±1.16×, ±2.3× | ≈ 0.12× steps |
+| GBPUSDc | ≈ $13 | 0, ±1.3×, ±2.6× | ≈ 0.13× steps |
+| USDJPYc | $10 | 0, ±1×, ±2×, ±3× | 0.1× steps |
+| XAUUSDc | ≈ $40 | not tradable | ≈ 4× steps |
+| BTCUSDc / USTECc | excluded until verified | — | — |
 
-### 6.4 Baselines (never shown to agents)
+Costs: no commission. The minimum EURUSDc position moves $0.001 (0.1 USC) per pip. A 1-pip spread is
+≈ 0.9 bps of notional, so a round trip at 2× ≈ 1.8 bps of equity; 100 round trips/day ≈ 1.8%/day.
+Exact pip values are golden-tested (factor-of-100 USC/USD risk).
 
-Flat, uniform random, equal-weight buy-and-hold, and a turnover-matched random agent per learned
-agent. Together they form the null distribution.
+### 6.5 Regional configuration (modular until verified)
 
-### 6.5 Train (fractional) → Stage D (Cent lots) transfer
+```
+configs/brokers/exness/
+  account_types/standard_cent.yaml       # account-level facts (§6.1), per-field status
+  instruments/{EURUSDc,...}.yaml         # per-symbol specs (§6.2)
+  regions/
+    global.yaml                          # stop-out 0%, leverage tiers incl. Unlimited
+    ke.yaml                              # stop-out 20%, max 1:400, BTCUSDc blocked
+    jo.yaml                              # stop-out 20%, leverage cap (to verify)
+    unverified.yaml                      # ACTIVE DEFAULT: marks all region-dependent fields ⛔
+```
+A B profile = account type ⊕ region ⊕ instruments. **The legal entity serving your account is not
+assumed** (decision 9). Until you confirm it, the active region is `unverified`: B can be built and
+unit-tested, and can run explicitly labelled **sensitivity runs across regions**, but no B result is
+reported as "the Exness Stage D result".
 
-The agent is evaluated, without retraining, on the Exness Cent profile. Reported: the performance
-gap between fractional and quantized execution, how often targets round to zero, and turnover
-change. Optional experiment: short quantization-aware fine-tuning on **training-period** data only.
+### 6.6 Verified-spec guard
+
+Loading a B profile for an evaluation fails if any field the run needs is not ✅. The error lists
+the fields, sources and statuses. A `--sensitivity` flag allows running over candidate values,
+and the results are tagged `unverified-spec` in tracking.
+
+### 6.7 From action to orders (no hidden rebalancing)
+
+```
+a ∈ [-1,1]^n  →  w_i = L·a_i / max(1, Σ|a_j|)               (gross ≤ L)
+target_units_i = w_i · equity / (price_i · contract_size_i · fx_to_account_i)
+A: fractional (no rounding; minimum trade threshold)
+B: round toward zero to lot_step; |target| < min_lot ⇒ 0
+execute delta_i only if |delta_i| ≥ lot_step_i ; reductions first, then increases
+B margin check: increases beyond free margin reduced to the largest affordable size (logged)
+```
+Decision at the close of the M5 decision bar → fill at the next **M1** open; buys at ask, sells at
+bid; adverse slippage (base + range-scaled + seeded noise); closed market ⇒ rejected and logged.
+
+### 6.8 Death, stop-out and NBP: order of evaluation (B)
+
+At every M1 step:
+1. Revalue positions (intra-bar adverse extremes, documented as conservative).
+2. **Death check:** equity ≤ 5% of initial ⇒ close all, terminate (`equity_floor`).
+3. **Broker stop-out check** (only reachable if a gap skipped past the 5% floor): margin level ≤
+   the verified stop-out level ⇒ close positions at the gap price (order per verified rule) ⇒ agent
+   dead (`gap_through`).
+4. **NBP:** balance < 0 after a full stop-out ⇒ reset to 0 (`nbp_reset`) in the NBP profile; kept as
+   debt in the no-NBP stress profile.
+
+In environment A, steps 3–4 are replaced by: negative equity is kept, and the reward is ε-floored.
 
 ---
 
-## 7. Preventing data leakage and overfitting
+## 7. Rewards and learners
 
-### 7.1 Splits (chronological, embargoed)
+### 7.1 Reward variants (net-of-cost equity)
+
+| ID | Reward | Expected behaviour |
+|---|---|---|
+| R1 baseline | `log(max(E_t, ε·E_0)/E_{t-1})`, ε = 0.01 | growth-optimal; penalizes variance and ruin |
+| R2 negative control | `(E_t − E_{t-1})/E_0` | risk-neutral; expected to drive max leverage and death |
+| R3 | R1 − λ·Δdrawdown | labelled risk preference |
+| R4 | differential Sharpe ratio | smooth; gameable by near-zero variance |
+| R5 | sparse terminal log-wealth | no shaping; hard credit assignment |
+
+Never: trade-count bonuses, win-rate rewards, market-presence rewards, realized-only PnL rewards.
+
+### 7.2 Reward-hacking closures
+
+Bid/ask fills and tradeable mask; rounding toward zero; margin checks; no NBP in A; one continuous
+life in evaluation; gap valuation; no absolute levels or dates; all variants judged on the same
+out-of-sample metrics; cost-robustness tests at 1.5× and 2×; calibration tests against held-out
+Exness tick months.
+
+### 7.3 Learners and baselines
+
+PPO first (tanh-squashed or Beta policy), then SAC and ES/GA. Baselines (flat, uniform random,
+equal-weight buy-and-hold, turnover-matched random) form the null distribution and are never shown
+to agents.
+
+### 7.4 Live feed for environment C (Phase 5, unresolved source)
+
+Read-only price sources only: candidates are Exness via a read-only MetaApi/MT5 connection (when
+re-introduced), a public crypto feed for BTC, or another FX data vendor. Whatever is chosen must
+produce the identical bar schema (bar-parity test). Execution is always the simulator.
+
+### 7.5 A → B transfer
+
+B evaluation without retraining. Reported: performance gap vs. A, the share of targets rounded to
+zero, turnover change, and the effect of excluded instruments. Optional: quantization-aware
+fine-tuning on training-period data only.
+
+---
+
+## 8. Leakage and overfitting
+
+### 8.1 Splits
 
 | Split | Period | Use |
 |---|---|---|
-| Train | 2018-01 → 2022-12 | Stage A |
+| Train | 2018-01 → 2022-12 | Stage A (environment A) |
 | Embargo | 2 weeks | |
 | Validation | 2023-01 → 2023-12 | hyperparameters, model selection |
 | Embargo | 2 weeks | |
-| Test | 2024-01 → 2025-06 | Stage B, milestone-only access, every access logged |
-| Final holdout | 2025-07 → present | touched once, before Stage C |
-| Exness calibration sample | recent 12–24 months of Exness ticks | **cost-model only**; prices from these months are never used as training inputs |
+| Test | 2024-01 → 2025-06 | unseen history (A and B); milestone-only, access logged |
+| Final holdout | 2025-07 → present | touched once, before C |
+| Exness cost calibration | Exness tick months (as old as available; preferably pre-test) | spread statistics only, never price inputs |
 
-Plus walk-forward folds inside the training range (2020 COVID, 2022 rate cycle, …).
+Walk-forward folds inside the training range. If Exness tick history only covers recent months, the
+calibration overlaps the test period. That is a documented leak of **cost statistics only**.
 
-Note: the Exness calibration months overlap the test/holdout period. This is acceptable because only
-**spread statistics** are taken from them, not price paths, but it is a documented leak of cost
-information into evaluation. An alternative is calibrating on older Exness months only, if
-available.
+### 8.2 Leakage controls
+Only bars closed at or before decision time; future-perturbation test; window-local normalization;
+M5 aggregation only from completed M1 bars; physically separate test files that the training loader
+refuses.
 
-### 7.2 Leakage controls
+### 8.3 Overfitting controls
+Random episode starts; validation-only selection; drift-adjusted reporting (optional sign-flip
+augmentation); deflated Sharpe and null distributions with block bootstrap; cost robustness.
 
-Observations only from bars closed ≤ decision time; a future-perturbation test; window-local
-normalization; aggregation only from completed M1 bars; the test split is physically separate and
-the training loader refuses it.
-
-### 7.3 Overfitting controls
-
-Random episode starts; validation-only model selection; beta vs. skill (drift-adjusted reporting,
-optional sign-flip augmentation); selection-bias correction (deflated Sharpe, null distributions,
-block bootstrap); cost robustness at 1.5× and 2×.
-
-### 7.4 Pre-registered success criteria
-
-On the test split, **all** of:
-1. net log-growth > 0 with a 95% block-bootstrap CI excluding 0;
-2. above the 95th percentile of turnover-matched random agents;
-3. not explained by buy-and-hold drift;
-4. still positive at 1.5× costs;
-5. consistent across ≥ 2 non-overlapping sub-periods;
-6. **(Stage D)** reported separately under the Exness Cent profile, including quantization effects.
+### 8.4 Pre-registered success criteria (test split, all required)
+1. Net log-growth > 0, 95% block-bootstrap CI excluding 0.
+2. Above the 95th percentile of turnover-matched random agents.
+3. Not explained by buy-and-hold drift.
+4. Still positive at 1.5× costs.
+5. Consistent across ≥ 2 non-overlapping sub-periods.
+6. Reported separately in B (verified profile only), including quantization and excluded-instrument effects.
 
 ---
 
-## 8. Tests required before reinforcement learning (Phase 1 exit gate)
+## 9. Validation plan (retained from r1/r2, now explicit)
 
-### 8.1 Data quality
-Monotonic unique UTC timestamps; bid ≤ ask; OHLC consistency per side; gap classification; DST;
-spread outlier detection; Dukascopy-vs-Exness mid divergence report on overlapping months.
+### 9.1 Data-quality checks
+Monotonic unique UTC timestamps; bid ≤ ask; OHLC consistency per side; gap classification
+(weekend, session break, outage); DST; spread outliers; Dukascopy-vs-Exness mid divergence on
+overlapping months.
 
-### 8.2 Simulator correctness
-1. No look-ahead (future-perturbation test).
-2. Fills: ask/bid at the next M1 open, adverse slippage, exact commissions (zero for Exness Cent).
-3. Accounting invariants (Hypothesis): equity = balance + unrealized; Δbalance = realized − costs −
-   swaps; ledger reconciliation; zero-cost round trip ⇒ zero PnL.
-4. **Golden scenarios with Exness numbers:** EURUSDc, USDJPYc (JPY → USC conversion) and XAUUSDc
-   trades with values checked against the demo terminal's profit calculation. **USC/USD
-   factor-of-100 test.**
-5. Action mapping: formula exact, gross ≤ L, zero ⇒ flat, reversal, rounding toward zero, min lot.
-6. Margin: fixed-margin instruments (crypto, indices) vs. leverage-based (FX, gold) vs. equity-tier
-   leverage; HMR windows raise margin.
-7. Death at 5%; Exness stop-out at 0% on a gap; closing order; no actions after death.
-8. NBP: reset only after a full stop-out with negative balance; no-NBP profile keeps the debt.
-9. Swaps: only for positions held across Exness rollover; triple days per instrument class;
-   swap-free variant.
-10. Sessions: no fills when closed; daily breaks for gold and indices; 24/7 BTC.
-11. Determinism: identical event-log hash for the same seed.
-12. Isolation: agent results identical alone vs. with others.
-13. Baselines match analytic expectations.
-14. No order path: the MetaApi adapter calls only allowlisted read-only endpoints; no trade
-    endpoint string exists in the package.
-15. Performance benchmark (steps/s), recorded per machine.
+### 9.2 The 15 simulator test groups (Phase 1 exit gate)
 
-### 8.3 Phase 2 gate
-`check_env` passes; on synthetic markets with planted structure the agent learns a profitable
-policy, and on a costly random walk it converges to ≈ flat.
+1. **No look-ahead:** future-perturbation test; M5 bars only from completed M1 bars.
+2. **Fills:** ask/bid at the next M1 open; adverse slippage; exact commissions (0 for Exness Cent).
+3. **Accounting invariants** (Hypothesis): equity = balance + unrealized; Δbalance = realized −
+   costs − swaps; ledger reconciliation; zero-cost round trip ⇒ zero PnL.
+4. **Golden scenarios:** hand-computed trades per instrument, including USD/JPY → USD/USC conversion,
+   the USC/USD factor-of-100 check, and XAUUSDc pip values.
+5. **Action mapping:** formula exact; gross ≤ L; zero ⇒ flat; reversal; rounding toward zero; min lot.
+6. **Margin:** leverage-based vs. fixed-margin instruments; equity tiers; Unlimited; HMR windows;
+   orders beyond free margin reduced and logged.
+7. **Death and stop-out:** death at 5% before broker stop-out; gap-through stop-out at the verified
+   level and closing order; no actions after death.
+8. **NBP:** reset only after a full stop-out with negative balance; no-NBP profile keeps the debt;
+   A keeps negative equity with an ε-floored reward.
+9. **Swaps:** charged only across rollover; triple days per instrument class; swap-free variant.
+10. **Sessions:** no fills when closed; daily breaks for gold and indices; 24/7 BTC; weekend-gap valuation.
+11. **Determinism:** same seed ⇒ identical event-log hash.
+12. **Isolation:** agent results identical alone vs. with other agents.
+13. **Baselines:** flat, buy-and-hold and random agents match analytic expectations.
+14. **No order path / profile integrity:** no broker trading client or trade endpoint in the
+    package; one profile per account (no Cent/Standard mixing); the verified-spec guard rejects
+    unverified B fields.
+15. **Performance benchmark:** steps/s recorded per machine; regressions flagged.
+
+### 9.3 Synthetic-market learning experiments (Phase 2 gate)
+
+Before any real data is used for learning, the learning loop must pass:
+
+| Experiment | Synthetic market | Expected outcome |
+|---|---|---|
+| S1 | AR(1) mean-reverting returns with costs | profitable policy learned; beats the null distribution |
+| S2 | Drift that switches sign with a visible regime flag | learns to follow the flag's regime |
+| S3 | Pure random walk with costs | converges to ≈ flat (no turnover) |
+| S4 | Random walk, no costs | no systematic profit (sanity: zero-edge market) |
+| S5 | Leakage canary: future returns hidden in a field the agent **cannot** see | no profit; a profit means a leak |
+| S6 | High-leverage trap: positive drift but fat-tailed crashes; L = 100 | R1 agents survive with moderate exposure; R2 agents die (validates reward behaviour) |
+
+Plus Gymnasium `check_env`. These are tests of the learning machinery, not strategies given to agents.
 
 ---
 
-## 9. Project directory structure
+## 10. Directory structure
 
 ```
 trading-world/
@@ -460,137 +441,160 @@ trading-world/
 ├── README.md
 ├── docs/
 │   ├── ARCHITECTURE.md
-│   ├── simulator-spec.md            ← exact formulas
-│   ├── exness-spec-verification.md  ← each broker field: value, source, date, status
-│   └── decisions/                   ← ADRs
+│   ├── simulator-spec.md
+│   ├── exness-spec-verification.md   ← each field: value, source URL, retrieved date, status
+│   └── decisions/                    ← ADRs
 ├── configs/
+│   ├── environments/{A_fractional, B_exness_cent, C_live_virtual}.yaml
 │   ├── instruments/
 │   ├── brokers/
 │   │   ├── fractional.yaml
-│   │   ├── exness_standard_cent.yaml      ← generated from the demo snapshot
-│   │   ├── exness_standard.yaml
-│   │   ├── exness_standard_cent_no_nbp.yaml
-│   │   └── exness_entity_ke.yaml          ← only if relevant
+│   │   └── exness/{account_types, instruments, regions}/   (see §6.5)
 │   └── experiments/
 ├── src/tradeworld/
 │   ├── data/          # sources/{dukascopy, exness_ticks}, align, quality, store
-│   ├── calibration/   # Exness spread model fitting + validation
-│   ├── brokerspec/    # read-only MetaApi spec snapshot → broker YAML
+│   ├── calibration/   # Exness spread model + validation
+│   ├── brokerspec/    # profile loading, composition, verified-spec guard
 │   ├── replay/  market/  execution/  accounts/  world/
 │   ├── interface/  envs/  rewards/  agents/  training/
-│   ├── evaluation/  tracking/  live/  dashboard/
-├── tests/  unit/ property/ golden/ integration/ benchmarks/
-├── scripts/       # hardware_check, download_data, calibrate_costs, snapshot_specs, run_world
-├── data/          # gitignored
-└── runs/          # gitignored
+│   ├── evaluation/  tracking/
+│   ├── live/          # Phase 5: read-only feeds only
+│   └── dashboard/     # Phase 6
+├── tests/  unit/ property/ golden/ integration/ synthetic/ benchmarks/
+├── scripts/  hardware_check, download_dukascopy, import_exness_ticks, calibrate_costs, run_world
+├── data/   # gitignored
+└── runs/   # gitignored
 ```
 
-The earlier `btc-trading-bot/` folder (an indicator bot, excluded by this spec) shares no code with
-this project. Its fate is still open (§12.2).
+`btc-trading-bot/` stays in the repository, untouched, and is not part of this project (decision 12).
 
 ---
 
-## 10. Metrics tracked per agent
+## 11. Metrics per agent
 
 Everything in spec §11, plus log-growth, Sharpe/Sortino, deflated Sharpe, drawdown duration,
-turnover, gross/net leverage, cost share of gross PnL, swap share, time in market, long/short bias,
-allocation entropy, holding-time distribution, stop-out and NBP counts, time to death,
-incapacitated duration, margin-limited orders, **rounded-to-zero target rate (Stage D)**. Behaviour
-embedding and clustering compare emergent diversity against seed-only diversity.
-
----
-
-## 11. Milestone 1 (Phase 0 + Phase 1)
-
-| Step | Deliverable | Exit criteria |
-|---|---|---|
-| 1.0 | ADRs for the decisions; `simulator-spec.md` | approved |
-| **1.0a** | **Hardware assessment** on your machine (§13) | resource plan agreed |
-| **1.0b** | **Exness spec verification:** read-only snapshot from an Exness MT5 Standard Cent demo via MetaApi; resolve every ⚠️/❓ in §5 | `exness-spec-verification.md` complete; broker YAMLs generated |
-| 1.1 | Instrument and broker configs; `market/`; FX and cent conversion | unit + golden tests |
-| 1.2 | `accounts/` + `execution/` on **synthetic** prices | §8.2 accounting, margin, stop-out, NBP, death tests green |
-| 1.3 | Data pipeline: Dukascopy bid/ask M1 (local download) + Exness tick sample; quality report | §8.1 green |
-| 1.4 | Exness spread calibration + validation | calibration test passes |
-| 1.5 | `replay/` + `interface/` + `world/` on real data | look-ahead, determinism, isolation green; throughput benchmark recorded |
-| 1.6 | Baselines (flat, random, buy-and-hold) on train/validation under the fractional and Exness Cent profiles | numbers match analytic expectations; report reviewed |
-
-Phase 2 starts only after Milestone 1 sign-off.
+turnover, gross/net leverage, cost and swap share of gross PnL, time in market, long/short bias,
+allocation entropy, holding-time distribution, stop-out/NBP counts, time to death, incapacitated
+duration, margin-limited orders, rounded-to-zero rate (B). Behaviour clustering compares emergent
+diversity against seed-only diversity.
 
 ---
 
 ## 12. Decisions
 
-### 12.1 Recorded (2026-11-15)
+### 12.1 Recorded
 
-1. **Training sizing:** fractional, with realistic costs.
-2. **Stage D:** Exness Cent specs where the instrument is supported, otherwise the applicable Exness
-   account specs and real minimum lots (see §5.5 for the open sub-question).
-3. **Margin and leverage:** verified Exness requirements, configurable per instrument and account type.
-4. **NBP:** Exness NBP in the broker-specific profile, plus a separate no-NBP stress scenario.
-5. **Data:** Dukascopy M1 bid/ask from 2018; Exness data for calibration.
-6. **Decision interval:** 5 minutes default; 1, 15 and 60 minutes configurable.
-7. **Compute:** develop locally first; assess hardware before long training runs.
+| # | Date | Decision |
+|---|---|---|
+| 1 | 2026-11-15 | Fractional position sizing during training, with realistic costs |
+| 2 | 2026-11-15 | Exness specs for Stage D (refined by 8) |
+| 3 | 2026-11-15 | Verified Exness margin and leverage, configurable per instrument and account type |
+| 4 | 2026-11-15 | Exness NBP in the broker profile, plus a no-NBP stress scenario |
+| 5 | 2026-11-15 | Dukascopy M1 bid/ask from 2018; Exness data for calibration |
+| 6 | 2026-11-15 | 5-minute decisions; 1, 15 and 60 configurable |
+| 7 | 2026-11-15 | Develop locally first; hardware assessment before long runs |
+| 8 | 2026-11-15 | **Stage D = Exness Cent-only account.** No Cent/Standard mixing. Only instruments verified as available on Cent. A keeps all six instruments |
+| 9 | 2026-11-15 | **Legal entity is not assumed** (not from nationality or residence). Regional config is modular until verified |
+| 10 | 2026-11-15 | **MetaApi deferred.** Start with official Exness tick history and verified specs. Phase 1 needs no credentials; read-only demo integration later |
+| 11 | 2026-11-15 | **Observation = 120 × M5 bars (10 h)**, configurable for experiments |
+| 12 | 2026-11-15 | **Keep `btc-trading-bot/`** unmodified; inspect separately later |
+| 13 | 2026-11-15 | **Three environments A/B/C** as defined in §1. **5% death is the experimental survival criterion**; broker stop-out and NBP modelled separately per verified Exness rules. C has absolutely no real order execution |
+| 14 | 2026-11-15 | **Unlimited leverage** (interpretation in §6.3, to confirm) |
 
-### 12.2 Still open
+### 12.2 Needs your confirmation
 
-1. **Stage D account mixing (§5.5):** (a) Cent-only universe (recommended), (b) hypothetical hybrid
-   ledger, or (c) two sub-accounts.
-2. **Exness entity/region** your account would be registered under (affects stop-out, leverage and
-   BTCUSDc availability).
-3. **Demo account for verification:** an Exness **MT5 Standard Cent demo** connected to MetaApi, and
-   its MetaApi account ID (used read-only).
-4. **Observation window at 5-minute decisions:** 120 × M5 bars (recommended) vs. 120 × M1 bars.
-5. **`btc-trading-bot/`:** keep separately or delete.
+1. **Decision 14 interpretation:** Exness account leverage = 1:Unlimited for broker margin in B,
+   while the agent's exposure cap stays L = 3 (stress L = 100)? Or did you mean removing the
+   exposure cap? (Removing it would need a different action mapping, because the formula requires
+   a finite L.)
+2. **Legal entity:** to be supplied by you once verified (Personal Area / account agreement).
 
 ---
 
-## 13. Hardware assessment (step 1.0a)
+## 13. Unresolved specifications (blocking for B results, not for Phase 1)
 
-To size the work, please run this on the machine that will do the training and paste the output:
+| # | Item | Needed for | How to resolve |
+|---|---|---|---|
+| U1 | Legal entity → stop-out level, leverage cap, instrument restrictions | B | you verify; then select `regions/*.yaml` |
+| U2 | BTCUSDc availability on Cent (MT5) and contract denomination | B instrument set | official page copy; Exness tick history symbol list; later demo |
+| U3 | USTECc availability and contract size on Cent | B instrument set | same |
+| U4 | XAUUSDc contract size (derived 1 oz per Cent lot) and pip value | B golden tests | official spec copy; tick data digits |
+| U5 | Unlimited-leverage eligibility conditions and margin formula | B margin | official Leverage page copy |
+| U6 | HMR windows (90 s vs. 5 min after news), bands per instrument, and a historical high-impact news calendar | B at L = 100 | official HMR page; choose a calendar source |
+| U7 | Stop-out closing order | B gap scenarios | official page or support |
+| U8 | Swap values (long/short) per symbol, swap-free eligibility | A and B costs | official swap tables (snapshot), later demo |
+| U9 | Whether Exness tick history includes Cent symbols, or whether Cent spreads equal Standard | cost calibration | inspect the tick-history symbol list |
+| U10 | Rollover time (21/22:00 GMT vs. 00:00 server) and server time zone | swaps, sessions | official About-swap page copy; tick timestamps |
+| U11 | Trading sessions and daily breaks per symbol | session mask | official pages; inferred from tick gaps and cross-checked |
+| U12 | Live price source for C | Phase 5 | decide in Phase 5 |
+| U13 | Dukascopy BTC history start date | A data range | on download |
+
+Assumptions in force until resolved: Cent spreads ≈ Standard spreads (U9); swaps from a current
+snapshot applied to all history (U8); conservative intra-bar stop evaluation; fractional A uses
+Exness-calibrated spreads with no commission.
+
+---
+
+## 14. Milestone 1 (Phase 0 + Phase 1), no credentials required
+
+| Step | Deliverable | Exit criteria |
+|---|---|---|
+| 1.0 | ADRs; `simulator-spec.md`; environment configs A/B/C | approved by you |
+| 1.0a | Hardware assessment (§15) | resource plan agreed |
+| 1.1 | Profile system: fractional + modular Exness profiles, per-field status, verified-spec guard, `exness-spec-verification.md` skeleton | unit tests; guard tests |
+| 1.2 | `accounts/` + `execution/` on synthetic prices (A and B mechanics) | test groups 2–9, 11, 12, 14 green |
+| 1.3 | Dukascopy pipeline (local download) + data-quality report | §9.1 green |
+| 1.4 | Exness tick import + spread calibration (first symbols: EURUSD, GBPUSD, USDJPY, XAUUSD) | calibration validation passes |
+| 1.5 | `replay/` + `interface/` (120 × M5) + `world/` on real data | test groups 1, 10, 15 green |
+| 1.6 | Baselines in A (and B with the `unverified` region, sensitivity-tagged) | group 13 green; report reviewed |
+
+Phase 2 (Gym env + synthetic experiments S1–S6 + first PPO agent) starts only after sign-off.
+
+---
+
+## 15. Hardware assessment (step 1.0a)
+
+Please run on the training machine and paste the output, plus RAM size and GPU model/VRAM:
 
 ```bash
 python -c "import os,platform,shutil;print(platform.platform());print('cpu',platform.processor(),os.cpu_count(),'threads');print('disk free GB',round(shutil.disk_usage('.').free/1e9))"
 python -c "import torch;print('torch',torch.__version__,'cuda',torch.cuda.is_available(),torch.cuda.get_device_name(0) if torch.cuda.is_available() else '')"
 ```
-and state your **RAM size** and **GPU model / VRAM** (Task Manager on Windows, About This Mac,
-or `free -h` / `nvidia-smi` on Linux).
-
-Rough requirements (estimates, to be replaced by measured benchmarks in step 1.5):
 
 | Resource | Minimum | Comfortable | Driver |
 |---|---|---|---|
-| Disk | 10 GB | 50 GB | Dukascopy raw files (~40k daily files), Parquet store (~0.5–1 GB), Exness tick sample (large; zipped monthly ticks), run logs |
-| RAM | 8 GB | 16–32 GB | aligned M1 arrays ≈ 1 GB float32 for 6 instruments × 9 years, plus parallel environments |
-| CPU | 4 cores | 8+ cores | the simulator is CPU-bound; parallel envs scale with cores |
-| GPU | none (CPU training is possible for small nets) | any CUDA GPU with ≥ 6 GB | larger encoders and many agents |
+| Disk | 10 GB | 50 GB+ | Dukascopy raw files, Parquet store (~0.5–1 GB), Exness tick months (large), run logs |
+| RAM | 8 GB | 16–32 GB | aligned M1 arrays ≈ 1 GB float32 + parallel envs |
+| CPU | 4 cores | 8+ cores | the simulator is CPU-bound |
+| GPU | none | CUDA GPU ≥ 6 GB | larger encoders, many agents |
 
-Ballpark: at 5-minute decisions, the 2018–2022 training range is ≈ 0.3–0.5 M decision steps per pass
-per agent. Typical PPO budgets of 10–50 M steps per agent mean hours per agent on a mid-range
-CPU. A population of agents multiplies that, which is why benchmarks come before any long run.
+Ballpark: the 2018–2022 range at 5-minute decisions is ≈ 0.3–0.5 M decision steps per pass. PPO
+budgets of 10–50 M steps per agent mean hours per agent on a mid-range CPU. Benchmarks come before
+any long run.
 
 ---
 
 ## Sources (Exness research, 2026-11-15)
 
-Official Exness pages (content obtained via search-engine extracts, because direct fetches returned 403):
+Official Exness pages (search-engine extracts; direct fetches returned 403):
 - Standard Cent account — https://get.exness.help/hc/en-us/articles/17537782786588-Standard-Cent-account
 - Standard account — https://get.exness.help/hc/en-us/articles/17537782738460-Standard-account
-- Margin call and stop out levels by account type — https://get.exness.help/hc/en-us/articles/360014693340-Margin-call-and-stop-out-levels-by-account-type
+- Margin call and stop out levels — https://get.exness.help/hc/en-us/articles/360014693340-Margin-call-and-stop-out-levels-by-account-type
 - 0% stop out / Stop Out Protection — https://get.exness.help/hc/en-us/articles/17685808714140-0-stop-out-Stop-Out-Protection
 - Negative Balance Protection — https://get.exness.help/hc/en-us/articles/18055126006044-Negative-Balance-Protection
 - Margin — https://get.exness.help/hc/en-us/articles/360014504992-Margin
 - Leverage — https://get.exness.help/hc/en-us/articles/360014529380-Leverage
-- Higher Margin Requirements (HMR) — https://get.exness.help/hc/en-us/articles/20618327917596-Higher-Margin-Requirements-HMR
+- Higher Margin Requirements — https://get.exness.help/hc/en-us/articles/20618327917596-Higher-Margin-Requirements-HMR
 - Commodities — https://get.exness.help/hc/en-us/articles/17854173039388-Commodities
 - Indices — https://get.exness.help/hc/en-us/articles/17854383867548-Indices
 - Cryptocurrencies — https://get.exness.help/hc/en-us/articles/17854191888540-Cryptocurrencies
 - About swap — https://get.exness.help/hc/en-us/articles/360014709151-About-swap
 - Account type suffixes — https://get.exness.help/hc/en-us/articles/360014560220-Account-type-suffixes
-- Forex (swap-free majors) — https://www.exness.com/forex/
-- Indices product page (USTEC 1:400) — https://www.exness.com/indices/us-tech-100/
+- Forex — https://www.exness.com/forex/
+- US Tech 100 — https://www.exness.com/indices/us-tech-100/
 - Tick history — https://www.exness.com/tick-history/
 
-Third-party (used only for items marked ❓):
+Third-party (only for ❓ items):
 - https://tradersunion.com/brokers/forex/view/exness/stop-out-level-and-trailing-stop/
 - https://onforex.co/en/exness/leverage/
 - https://www.brokerxplorer.com/article/exness-tick-history-report-a-beginners-guide-4624
