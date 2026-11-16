@@ -172,7 +172,7 @@ def main():
           f"${x['costs']['spread'] + x['costs']['slippage']:.4f} | ${x['costs']['swap']:.4f} |")
     xb = S["hold_basket"]
     P(f"| hold_basket (1/6 each) | ${xb['equity']:.4f} | {xb['ret']:+.2%} | | | "
-      f"${xb['costs']['spread'] + xb['costs']['slippage']:.4f} | ${xb["costs"]["swap"]:.4f} |")
+      f"${xb['costs']['spread'] + xb['costs']['slippage']:.4f} | ${xb['costs']['swap']:.4f} |")
     checks.append(("Buy-and-hold matches price move after costs, one fill each", hold_ok))
     P(f"\n**{'PASS' if hold_ok else 'FAIL'}**\n")
 
