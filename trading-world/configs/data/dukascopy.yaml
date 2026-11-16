@@ -1,0 +1,13 @@
+# Dukascopy M1 bid/ask candle source for environment A/B price paths (decision 5).
+# price_divisor: integer prices in .bi5 files are divided by this. Status 'assumption' until
+# checked against a downloaded sample (the importer also sanity-checks price ranges).
+base_url: https://datafeed.dukascopy.com/datafeed
+request_pause_seconds: 30.0         # Dukascopy throttles this cloud environment (429/503/resets; ~50% success at 30 s)
+zero_volume_is_unquoted: {value: true, status: assumption, note: "flat zero-volume candles treated as no quote"}
+instruments:
+  XAUUSD: {source: XAUUSD,        price_divisor: {value: 1000,   status: assumption}, range: [200, 10000]}
+  EURUSD: {source: EURUSD,        price_divisor: {value: 100000, status: verified, source: "decoded real files 2024-01-08/09; prices match market levels"}, range: [0.5, 2.0]}
+  GBPUSD: {source: GBPUSD,        price_divisor: {value: 100000, status: verified, source: "decoded real files 2024-01-08/09; prices match market levels"}, range: [0.8, 2.5]}
+  USDJPY: {source: USDJPY,        price_divisor: {value: 1000, status: verified, source: "decoded real files 2024-01-08/09; prices match market levels"}, range: [70, 250]}
+  BTCUSD: {source: BTCUSD,        price_divisor: {value: 10, status: verified, source: "decoded real files 2024-01-08/09; prices match market levels"}, range: [1000, 500000]}
+  NAS100: {source: USATECHIDXUSD, price_divisor: {value: 1000,   status: assumption}, range: [3000, 60000]}
