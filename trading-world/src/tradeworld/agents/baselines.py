@@ -32,18 +32,22 @@ class RandomPolicy:
 
 
 class HoldPolicy:
-    """Takes `initial_action` once, then re-outputs its current exposure (true buy-and-hold:
+    """Submits `initial_action` until every instrument it targets holds a position (orders are
+    rejected while a market is closed), then re-outputs its current exposure (true buy-and-hold:
     the position is not rebalanced as equity changes)."""
 
     def __init__(self, initial_action, mapper: ActionMapper):
         self.initial = np.asarray(initial_action, dtype=float)
         self.mapper = mapper
+        self.targets = np.flatnonzero(self.initial[:mapper.n] != 0.0)
         self.started = False
 
     def __call__(self, obs):
         if not self.started:
+            held = np.asarray(obs.exposure, dtype=float)[self.targets] != 0.0
+            if not held.all():
+                return self.initial
             self.started = True
-            return self.initial
         w = np.asarray(obs.exposure, dtype=float)
         G = float(np.sum(np.abs(w)))
         if G == 0.0:

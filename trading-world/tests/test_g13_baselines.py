@@ -62,3 +62,17 @@ def test_random_agent_bleeds_costs_on_zero_drift_market():
     gross = pnl + costs                                           # market P&L before costs
     assert abs(gross.mean()) < 4 * gross.std(ddof=1) / np.sqrt(len(gross)) + 1e-9
     assert np.all(pnl < gross)                                    # costs always reduce P&L
+
+
+def test_hold_policy_waits_for_market_to_open():
+    """Buy-and-hold must still buy if its first orders are rejected because the market is closed."""
+    u = single()
+    q = np.ones(400, dtype=bool)
+    q[:100] = False                                                   # closed for the first 100 minutes
+    md = market(u, np.full(400, 1.1), quoted=q[:, None])
+    res = run(md, make_profile(u), {"h": HoldPolicy(act(1, [1.0], 1.0), ActionMapper.primary(1))},
+              interval=5, resolution=5, window=4)
+    acct = res.accounts["h"]
+    f = fills(acct)
+    assert len(f) == 1 and f[0].t >= md.times[100]
+    assert any(e.kind == "reject" for e in acct.events)
