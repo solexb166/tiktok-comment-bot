@@ -59,6 +59,11 @@ def commit_and_push(paths, message):
     log(f"WARNING: push failed: {r.stderr.strip()[:200]}")
 
 
+def nap(seconds, deadline):
+    """Sleep, but never past the run's time budget."""
+    time.sleep(max(0.0, min(seconds, deadline - time.time())))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--max-minutes", type=float, default=110)
@@ -120,11 +125,12 @@ def main():
                                 files[name], statuses[name] = payload, status
                                 stats[status] += 1
                                 backoff = plan["pause_seconds"]
-                                time.sleep(plan["pause_seconds"])
+                                nap(plan["pause_seconds"], deadline)
                                 break
                             stats["throttled"] += 1
                             backoff = min(backoff * 2, plan["max_backoff_seconds"])
-                            time.sleep(backoff)
+                            log(f"throttled ({code}) on {sym} {name}; retrying in {backoff:.0f}s")
+                            nap(backoff, deadline)
                 path = pack_month(root, sym, y, m, files, statuses)
                 stats["months_packed"] += 1
                 log(f"packed {path.relative_to(ROOT)} ({path.stat().st_size // 1024} KB); stats {stats}")
