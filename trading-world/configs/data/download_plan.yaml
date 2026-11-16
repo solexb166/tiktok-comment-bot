@@ -1,0 +1,11 @@
+# Trickle-download order (decision 2026-11-16: free, resumable, start small).
+# 2022-2023 first: end of the training range + the validation year, so Phase 2 real-data work
+# never needs test-period data. Then the test/holdout period, then the early training years.
+phases:
+  - {name: train_tail_and_validation, start: 2022-01-01, end: 2023-12-31}
+  - {name: test_and_holdout, start: 2024-01-01, end: yesterday}
+  - {name: train_early, start: 2018-01-01, end: 2021-12-31}
+instruments: [EURUSD, GBPUSD, USDJPY, XAUUSD, BTCUSD, NAS100]
+pause_seconds: 30            # between requests
+max_backoff_seconds: 900     # cap for exponential backoff after throttling
+archive_dir: datasets/dukascopy
