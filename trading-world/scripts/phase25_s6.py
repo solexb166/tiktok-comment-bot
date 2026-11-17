@@ -8,7 +8,10 @@
   python scripts/phase25_s6.py status
 """
 import argparse
+import os
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -38,9 +41,61 @@ CONDITIONS = [
 ]
 
 
+def commit(message: str) -> None:
+    """Commit and push the registry and report after a step (retries around concurrent commits)."""
+    trailer = ("\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>\n"
+               "Claude-Session: https://claude.ai/code/session_01GPvsEBXtZjzV2SPuWVYBnk")
+    for attempt in range(6):
+        g = lambda *x: subprocess.run(["git", "-C", str(ROOT), *x], capture_output=True, text=True)
+        g("add", "registry", "reports/phase25")
+        if g("diff", "--cached", "--quiet").returncode == 0:
+            return
+        if g("commit", "-q", "-m", message + trailer).returncode == 0:
+            for _ in range(4):
+                if g("push", "-q", "origin", "HEAD").returncode == 0:
+                    return
+                g("pull", "-q", "--rebase", "origin", "HEAD")
+                time.sleep(5)
+            return
+        time.sleep(5 * (attempt + 1))                     # e.g. the downloader holds the index lock
+
+
+def others_running() -> bool:
+    me = str(os.getpid())
+    out = subprocess.run(["pgrep", "-f", "phase25_s6.py (stage|round)"], capture_output=True, text=True).stdout.split()
+    return any(pid != me for pid in out)
+
+
+def run_all(e, workers: int) -> None:
+    """The locked plan, in order. Every step is idempotent: re-running after an interruption
+    resumes where it stopped (interrupted training continues from its last checkpoint)."""
+    while others_running():
+        print("waiting for a running stage or round to finish", flush=True)
+        time.sleep(30)
+    for k in (1, 2, 3):
+        if not e.stage_complete(k):
+            e.run_stage(k, workers)
+            commit(f"Phase 2.5 S6: stage {k} trained")
+        if not e.round_complete(k):
+            rid = e.run_round(k, workers)
+            commit(f"Phase 2.5 S6: round {k} ({rid}) evaluated")
+    if e.candidates() is None:
+        for key, c in e.select()["seeds"].items():
+            print(key, "->", c["candidate"], flush=True)
+        commit("Phase 2.5 S6: candidates selected from rounds 1-3 and locked before round 4")
+    for n in (4, 5):
+        if not e.round_complete(n):
+            rid = e.run_round(n, workers)
+            commit(f"Phase 2.5 S6: round {n} ({rid}, {'confirmation' if n == 4 else 'replication'}) evaluated")
+    out = ROOT / "reports" / "phase25" / "s6_report.md"
+    out.write_text(p25.report(e))
+    commit("Phase 2.5 S6: final report")
+    print("ALL DONE", flush=True)
+
+
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("cmd", choices=["plan", "stage", "round", "select", "report", "status"])
+    ap.add_argument("cmd", choices=["plan", "stage", "round", "select", "report", "status", "all"])
     ap.add_argument("n", nargs="?", type=int)
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--registry", default=str(ROOT / "registry"))
@@ -63,6 +118,8 @@ def main():
         out.parent.mkdir(parents=True, exist_ok=True)
         out.write_text(p25.report(e))
         print("written", out)
+    elif a.cmd == "all":
+        run_all(e, a.workers)
     elif a.cmd == "status":
         print("stages:", [k for k in (1, 2, 3) if e.stage_complete(k)],
               "rounds:", [n for n in range(1, 6) if e.round_complete(n)],
