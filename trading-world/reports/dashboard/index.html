@@ -16,6 +16,7 @@
   .tw-big small { font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-body); color: var(--color-fg-muted); }
   .tw-section { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
   .tw-row { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); align-items: center; }
+  .tw-row .dash-select { max-width: 100%; min-width: 0; }
   .tw-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); border: 1px solid var(--color-border-line); white-space: nowrap; }
   .tw-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
   .tw-pass { color: var(--color-ok); }
@@ -104,12 +105,12 @@
         <thead>
           <tr>
             <th data-field="task_name">Practice market</th>
-            <th data-field="reward_name">Scored on</th>
-            <th data-field="seed" class="tw-num">Seed</th>
             <th data-field="result">Result</th>
             <th data-field="growth_pct" class="tw-num">Growth per test run</th>
             <th data-field="deaths_pct" class="tw-num">Deaths</th>
             <th data-field="avg_leverage" class="tw-num">Avg. position size</th>
+            <th data-field="reward_name">Scored on</th>
+            <th data-field="seed" class="tw-num">Seed</th>
             <th data-field="why">Why</th>
           </tr>
         </thead>
@@ -248,10 +249,9 @@
       .on('click', (e, r) => { if (r.status === 'trained') window.twSelect(r.agent); })
       .on('keydown', (e, r) => { if ((e.key === 'Enter' || e.key === ' ') && r.status === 'trained') { e.preventDefault(); window.twSelect(r.agent); } });
     rows.selectAll('td').data((r) => [
-      { t: r.task_name }, { t: r.reward_name }, { t: r.seed, num: true },
-      { t: window.twResultText[r.result] || r.result, pill: r.result },
+      { t: r.task_name }, { t: window.twResultText[r.result] || r.result, pill: r.result },
       { t: pct(r.growth_pct), num: true }, { t: r.deaths_pct == null ? '—' : d3.format('.0f')(+r.deaths_pct) + '%', num: true },
-      { t: lev(r.avg_leverage), num: true }, { t: r.why || '' },
+      { t: lev(r.avg_leverage), num: true }, { t: r.reward_name }, { t: r.seed, num: true }, { t: r.why || '' },
     ]).join('td')
       .attr('class', (c) => c.num ? 'tw-num' : null)
       .each(function (c) {
@@ -273,15 +273,15 @@
     }));
     if (!rows.length) { el.textContent = 'No replay recorded for this agent yet.'; return; }
     const W = Math.max(300, el.clientWidth || 600);
-    const m = { l: 52, r: 16, t: 22, b: 26 };
+    const m = { l: 52, r: 16, t: 22, b: 40 };
     const ph = 120, gap = 34;
     const H = m.t + 3 * ph + 2 * gap + m.b;
     const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('width', '100%')
       .attr('role', 'img').attr('aria-label', `Replay of ${window.twLabel(cur)}`);
     const x = d3.scaleLinear().domain(d3.extent(rows, (r) => r.step)).range([m.l, W - m.r]);
     const panels = [
-      { key: 'price', title: 'Market price (start = 100)', fmt: d3.format('.2f') },
-      { key: 'net', title: 'Position (x account; above 0 = long, below = short)', fmt: d3.format('+.2f'), zero: true },
+      { key: 'price', title: 'Market price (start = 100)', fmt: d3.format('.4~g') },
+      { key: 'net', title: 'Position (x account; above 0 = long, below = short)', fmt: (v) => (v > 0 ? '+' : '') + d3.format('.3~g')(v) + 'x', zero: true },
       { key: 'equity', title: 'Account ($)', fmt: (v) => '$' + d3.format(',.2f')(v) },
     ];
     const color = dash.colors[0];
@@ -332,7 +332,7 @@
       }
     });
     const xa = svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(Math.max(2, Math.floor(W / 120))).tickFormat(d3.format(',')));
-    svg.append('text').attr('x', W - m.r).attr('y', H - 2).attr('text-anchor', 'end').text('decision number');
+    svg.append('text').attr('x', W - m.r).attr('y', H - 4).attr('text-anchor', 'end').text('decision number');
     const tip = d3.select(el).append('div').attr('class', 'tw-tip').style('display', 'none');
     const cross = svg.append('line').attr('y1', m.t).attr('y2', H - m.b).style('stroke', 'var(--cds-chart-reference)').style('display', 'none');
     const dots = panels.map(() => svg.append('circle').attr('r', 4).style('fill', color).style('stroke', 'var(--color-panel)').style('stroke-width', 2).style('display', 'none'));
