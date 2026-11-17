@@ -331,3 +331,104 @@ def _eval_job(args):
                    extra_fields=dict(experiment=EXPERIMENT_ID, experiment_label=job["label"],
                                      experiment_round=job["round"]))
     return job, rec
+
+
+# ---------------------------------------------------------------------------- report
+def _fmt(x, f="{:.2f}", none="—"):
+    return none if x is None or (isinstance(x, float) and not math.isfinite(x)) else f.format(x)
+
+
+def report(exp: Experiment) -> str:
+    reg, m = exp.reg, exp.manifest()
+    L = [f"# Phase 2.5: S6 agent evolution ({EXPERIMENT_ID})\n",
+         "Pre-registered design, schedule, selection rule and success criteria: "
+         f"`registry/experiments/{EXPERIMENT_ID}/manifest.json`. Decision-quality score: docs/decisions/0004.\n"]
+    stages = [k for k in range(1, STAGES + 1) if exp.stage_complete(k)]
+    rounds = [n for n in range(1, 6) if exp.round_complete(n)]
+    L.append(f"Stages complete: {stages or 'none'}. Rounds complete: {rounds or 'none'}. "
+             f"Candidates locked: {'yes' if exp.candidates() else 'no'}.\n")
+    L += ["## Every version in every round\n",
+          "Growth = average change per 20-run test round. Q = episode decision quality (1 = optimal sizing, 0 = staying "
+          "out). q = per-decision quality on non-ruinous decisions. Ruinous = share of decisions at 9.5x or more. "
+          "Jumps = share of consecutive decisions whose size changed more than tenfold. Crash exposure = average "
+          "size before the largest moves / elsewhere (about 1 is right: crashes are unpredictable). After loss = "
+          "size after a >2% loss / size before.\n",
+          "| Agent | Label | Version | Round | Verdict | Growth | Deaths | Ruinous | Q | q | Median size | Largest | "
+          "Jumps | Typical size change | Crash exposure | Long | After loss |",
+          "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
+    for key, a in m["agents"].items():
+        for lab in labels_for(a["reward"], STAGES):
+            for n in range(1, 6):
+                rid = exp.round_id(n)
+                e = exp._eval(key, lab, rid) if rid else None
+                if e is None:
+                    continue
+                s, mt = e["summary"], e["diagnosis"]["metrics"]
+                ce = (mt["leverage_before_big_moves"] / mt["leverage_elsewhere"]
+                      if mt.get("leverage_before_big_moves") is not None and mt.get("leverage_elsewhere") else None)
+                L.append(f"| {key} | {lab} | v{e['version']} | {n} | {e['result']} | {100 * (math.exp(s['lg']) - 1):+.1f}% | "
+                         f"{100 * s['died']:.0f}% | {_fmt(100 * mt['dq_ruinous_share'], '{:.1f}%')} | "
+                         f"{_fmt(mt['dq_episode_quality'])} | {_fmt(mt['dq_quality'])} | {_fmt(mt['median_leverage'])}x | "
+                         f"{_fmt(mt['max_leverage'], '{:.0f}')}x | {_fmt(100 * mt['share_size_jumps_10x'] if mt.get('share_size_jumps_10x') is not None else None, '{:.1f}%')} | "
+                         f"{_fmt(mt.get('median_size_change'), '{:.2f}x')} | {_fmt(ce)} | {_fmt(100 * mt['long_share'], '{:.0f}%')} | "
+                         f"{_fmt(mt.get('size_after_loss_ratio'))} |")
+    L += ["", "## Training history (per version)\n",
+          "| Agent | Label | Version | Steps | Training episodes | Death rate first / last 20% | Ruinous share first / last 20% | Quality first / last 20% |",
+          "|---|---|---|---|---|---|---|---|"]
+    import io
+    import pandas as pd
+    for key, a in m["agents"].items():
+        for lab in labels_for(a["reward"], STAGES)[1:]:
+            v = exp.version_of(key, lab)
+            if v is None:
+                continue
+            rec = reg.version(a["agent_id"], v)
+            sha = rec["history"].get("episodes_sha256")
+            if not sha:
+                continue
+            ep = pd.read_parquet(io.BytesIO(reg.blobs.get(sha))).sort_values("step")
+            k = max(1, len(ep) // 5)
+            first, last = ep.iloc[:k], ep.iloc[-k:]
+            col = lambda d, c: d[c].mean() if c in d else float("nan")
+            L.append(f"| {key} | {lab} | v{v} | {rec['training']['steps_added']:,} | {len(ep)} | "
+                     f"{100 * col(first, 'died'):.0f}% / {100 * col(last, 'died'):.0f}% | "
+                     f"{100 * col(first, 'share_ruinous'):.1f}% / {100 * col(last, 'share_ruinous'):.1f}% | "
+                     f"{col(first, 'decision_quality'):.2f} / {col(last, 'decision_quality'):.2f} |")
+    cand = exp.candidates()
+    if cand:
+        L += ["", "## Candidate selection (locked before round 4)\n", f"Locked at {cand['locked_at']}. Rule: {cand['rule']}\n",
+              "| Growth seed | Label | Rounds | Mean Q | Mean median size | Mean ruinous share | Eligible | Selected |",
+              "|---|---|---|---|---|---|---|---|"]
+        for key, c in cand["seeds"].items():
+            for r in c["table"]:
+                L.append(f"| {key} | {r['label']} | {r['rounds']} | {r['episode_quality']:.2f} | {r['median_size']:.2f}x | "
+                         f"{100 * r['ruinous_share']:.1f}% | {'yes' if r['eligible'] else 'no'} | "
+                         f"{'**selected**' if r['label'] == c['candidate'] else ''} |")
+        L += ["", "## Confirmation (round 4) and replication (round 5)\n",
+              "| Agent | Candidate | Round | Ruinous v1 -> cand | C1 | Q difference (95% CI) | C2 | Median v1 -> cand | C3 |",
+              "|---|---|---|---|---|---|---|---|---|"]
+        passes, ctrl = 0, 0
+        for key, c in cand["seeds"].items():
+            seed = key.split("-")[1]
+            for who, lab in ((key, c["candidate"]), (f"{CONTROL}-{seed}", c["matched_control"])):
+                r = exp.criteria(who, lab)
+                for n in (4, 5):
+                    x = r[f"round{n}"]
+                    if x is None:
+                        continue
+                    L.append(f"| {who} | {lab} | {n} | {100 * x['ruin'][0]:.1f}% -> {100 * x['ruin'][1]:.1f}% | "
+                             f"{'yes' if x['c1'] else 'no'} | {x['q_diff']:+.2f} ({x['q_ci'][0]:+.2f}, {x['q_ci'][1]:+.2f}) | "
+                             f"{'yes' if x['c2'] else 'no'} | {x['median'][0]:.2f}x -> {x['median'][1]:.2f}x | "
+                             f"{'yes' if x['c3'] else 'no'} |")
+                if who == key and r["passed"]:
+                    passes += 1
+                if who != key and r["round4"] and r["round4"]["c1"] and r["round4"]["c2"]:
+                    ctrl += 1
+        if exp.round_complete(5):
+            L += ["", "## Pre-registered conclusion\n",
+                  f"Growth seeds meeting C1-C4: **{passes} of 3** "
+                  f"({'genuine behavioural improvement demonstrated' if passes >= 2 else 'improvement NOT demonstrated'}). "
+                  f"Matched controls meeting C1 and C2 in round 4: {ctrl} of 3"
+                  + (" (as often as the growth agents: the change is not clearly due to learning from consequences)."
+                     if passes >= 2 and ctrl >= passes else ".")]
+    return "\n".join(L) + "\n"

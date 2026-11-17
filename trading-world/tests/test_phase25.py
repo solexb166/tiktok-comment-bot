@@ -75,6 +75,9 @@ def test_full_flow_with_guards(exp, monkeypatch):
     assert len(set(b_seeds)) == 3 and min(b_seeds) >= 1000                  # fresh, never-used paths
     r = e.criteria("R1-0", cand["seeds"]["R1-0"]["candidate"])
     assert r["round4"] is not None and r["round5"] is not None and r["passed"] in (True, False)
+    text = p25.report(e)
+    assert "Every version in every round" in text and "Pre-registered conclusion" in text
+    assert text.count("| R1-0 |") >= 7
 
 
 def _small_venv(real):
