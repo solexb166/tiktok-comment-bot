@@ -60,12 +60,19 @@ class WorldResult:
 class World:
     def __init__(self, md: MarketData, profile: EnvProfile, agents: list[AgentSpec], *,
                  seed: int = 0, decision_interval: int = 5, obs_resolution: int = 5,
-                 window: int = 120, record: bool = True, max_invalid_streak: int | None = None):
+                 window: int = 120, record: bool = True, max_invalid_streak: int | None = None,
+                 view: MarketView | None = None, replay: Replay | None = None):
+        """`view`/`replay` may be passed in to share pre-built, read-only market structures
+        between many worlds on the same data (e.g. training episodes); they must match `md`."""
         ids = [a.agent_id for a in agents]
         if len(set(ids)) != len(ids):
             raise ValueError("agent ids must be unique")
-        self.view = MarketView(md, profile)
-        self.replay = Replay(md, decision_interval, obs_resolution, window)
+        self.view = view if view is not None else MarketView(md, profile)
+        self.replay = replay if replay is not None else Replay(md, decision_interval, obs_resolution, window)
+        if self.view.md is not md or self.replay.md is not md:
+            raise ValueError("shared view/replay must be built on the same MarketData")
+        if (self.replay.k, self.replay.r, self.replay.W) != (decision_interval, obs_resolution, window):
+            raise ValueError("shared replay settings differ from decision_interval/obs_resolution/window")
         self.profile, self.record, self.max_invalid_streak = profile, record, max_invalid_streak
         n = profile.universe.n
         self.slots = []
@@ -75,28 +82,41 @@ class World:
             self.slots.append(_Slot(a, Account(a.agent_id, profile, rng), a.mapper or ActionMapper.primary(n)))
         self.rows: list[dict] = []
 
-    def run(self, start: int | None = None, stop: int | None = None) -> WorldResult:
-        """Run decisions whose M1 index lies in [start, stop)."""
+    def decisions(self, start: int | None = None, stop: int | None = None) -> np.ndarray:
+        """M1 indices of the decisions whose index lies in [start, stop)."""
         dec = self.replay.decision_indices
         if start is not None:
             dec = dec[dec >= start]
         if stop is not None:
             dec = dec[dec < stop]
-        view = self.view
-        for k, d in enumerate(dec):
-            d = int(d)
+        return dec
+
+    def step(self, dec: np.ndarray, k: int) -> int:
+        """Decision k of schedule `dec` for every live agent, then process the M1 bars up to and
+        including the next decision bar. Returns the last processed M1 index."""
+        d = int(dec[k])
+        for s in self.slots:
+            if s.acct.alive:
+                self._decide(s, d)
+        nxt = int(dec[k + 1]) if k + 1 < len(dec) else min(d + self.replay.k, self.view.md.T - 1)
+        for j in range(d + 1, nxt + 1):
             for s in self.slots:
-                if s.acct.alive:
-                    self._decide(s, d)
-            nxt = int(dec[k + 1]) if k + 1 < len(dec) else min(d + self.replay.k, view.md.T - 1)
-            for j in range(d + 1, nxt + 1):
-                for s in self.slots:
-                    if s.acct.alive and s.acct.has_positions:
-                        process_bar(s.acct, view, j)
+                if s.acct.alive and s.acct.has_positions:
+                    process_bar(s.acct, self.view, j)
+        return nxt
+
+    def result(self) -> WorldResult:
         for s in self.slots:
             self._close_interval(s)
         return WorldResult({s.spec.agent_id: s.acct for s in self.slots},
                            pd.DataFrame(self.rows, columns=RECORD_FIELDS), self.profile)
+
+    def run(self, start: int | None = None, stop: int | None = None) -> WorldResult:
+        """Run decisions whose M1 index lies in [start, stop)."""
+        dec = self.decisions(start, stop)
+        for k in range(len(dec)):
+            self.step(dec, k)
+        return self.result()
 
     # ------------------------------------------------------------------
     def _close_interval(self, s: _Slot) -> None:
