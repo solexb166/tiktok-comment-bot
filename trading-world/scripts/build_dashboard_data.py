@@ -180,15 +180,15 @@ def registry_rows(reg_root: Path):
                 for o in (e.get("diagnosis") or {}).get(key, []):
                     diag.append(dict(agent_id=a, version=e["version"], round_id=e["round_id"], kind=kind,
                                      code=o["code"], text=o["text"]))
-            if e.get("decision_samples_sha256"):
+            latest_round = max((x["recorded_at"], x["round_id"]) for x in reg.evaluations(a) if x["version"] == e["version"])[1]
+            if e.get("decision_samples_sha256") and (original or e["round_id"] == latest_round):
                 d = decision_samples(reg, e)
                 worst = e["sample_episodes"][0]
                 d = d[d["episode"] == worst]
                 p0 = float(d["price"].iloc[0])
                 for x in d.itertuples():
                     decisions.append(dict(
-                        eval_id=e["eval_id"], agent_id=a, version=e["version"], round_id=e["round_id"],
-                        episode=int(x.episode), step=int(x.step), price=_r(100 * x.price / p0, 3),
+                        eval_id=e["eval_id"], step=int(x.step), price=_r(100 * x.price / p0, 3),
                         direction={1: "long", -1: "short", 0: "flat"}[int(x.direction)],
                         size_chosen=_r(x.gross_selected, 4), leverage=_r(x.leverage_after_fill, 3),
                         position_change=x.position_change.replace("_", " "), equity_before=_r(x.equity_before, 4),
@@ -208,8 +208,11 @@ def registry_rows(reg_root: Path):
 def write_registry(reg_root: Path, out: Path) -> dict:
     data = registry_rows(reg_root)
     n = {}
+    dec = data.pop("decisions")
+    data["decisions"] = [r for r in dec if r["eval_id"].endswith("-gate-1")]          # originals: load with the page
+    data["decisions_p25"] = [r for r in dec if not r["eval_id"].endswith("-gate-1")]  # later rounds: on demand
     for k, rows in data.items():
-        if k in ("training", "decisions"):
+        if k in ("training", "decisions", "decisions_p25"):
             path = out / f"registry_{k}.csv"
             if rows:
                 write_csv(path, rows)

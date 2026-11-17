@@ -29,10 +29,14 @@ window.twH_eval = function () {
   if (!cur) { cur = ev[ev.length - 1]; window.twHist.evalId = cur.eval_id; window.twHist.idx = 0; }
   return cur;
 };
+window.twH_decisionSource = function () {
+  const e = window.twH_eval();
+  return e && e.round_id !== 'gate-1' ? 'registry_decisions_p25' : 'registry_decisions';
+};
 window.twH_decisions = function () {
   const e = window.twH_eval();
   if (!e) return [];
-  return twH_rows('registry_decisions').filter((d) => d.eval_id === e.eval_id).map((d) => ({
+  return twH_rows(window.twH_decisionSource()).filter((d) => d.eval_id === e.eval_id).map((d) => ({
     ...d, step: +d.step, price: +d.price, size_chosen: +d.size_chosen, leverage: +d.leverage,
     equity_before: +d.equity_before, equity_after: +d.equity_after, reward: +d.reward, costs: +d.costs,
     market_move_pct: +d.market_move_pct, expected_move_pct: d.expected_move_pct === '' || d.expected_move_pct == null ? null : +d.expected_move_pct,
@@ -285,7 +289,7 @@ dash.draw('dr-eval-select', (sel) => {
 
 dash.draw('dr-chart', (el) => {
   el.replaceChildren();
-  if (!twH_ok('registry_decisions')) { el.textContent = '—'; return; }
+  if (!twH_ok(window.twH_decisionSource())) { el.textContent = '—'; return; }
   const rows = window.twH_decisions();
   if (!rows.length) { el.textContent = 'No recorded decisions for this evaluation.'; return; }
   const idx = Math.min(window.twHist.idx, rows.length - 1);
