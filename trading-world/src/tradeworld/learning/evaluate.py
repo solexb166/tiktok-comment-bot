@@ -73,7 +73,8 @@ def expected_returns(task) -> np.ndarray:
 
 def mapper_from(identity: dict, n: int = 1) -> ActionMapper:
     a = identity["frozen"]["action_space"]
-    return ActionMapper(n, a.get("log10_min", -4.0), a.get("log10_max", 4.0), a.get("cap"))
+    return ActionMapper(n, a.get("log10_min", -4.0), a.get("log10_max", 4.0), a.get("cap"),
+                        a.get("size_repr", "log10"))
 
 
 def make_env(identity: dict, task, recorder: bool = True, expected=None):
@@ -134,7 +135,7 @@ def null_distribution(identity, task, starts, stats) -> dict:
     out = []
     for j in range(NULL_AGENTS):
         ns = run_episodes(matched_random_policy(mapper, g, switch, 50_000 + j), task, starts,
-                          identity["frozen"]["episode_decisions"])
+                          identity["frozen"]["episode_decisions"], mapper=mapper)
         out.append(float(np.mean([s.log_growth for s in ns])))
     return dict(mean_log_growth_per_agent=out, matched_gross=g, matched_switch_prob=switch)
 

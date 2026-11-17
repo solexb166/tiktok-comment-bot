@@ -65,7 +65,10 @@ class TradeWorldEnv(gym.Env):
         self.encoder = ObsEncoder(n, window, len(MARKET_FEATURES), len(account_feature_names(profile.universe.symbols)),
                                   0 if self.extra is None else self.extra.shape[1])
         self.observation_space = gym.spaces.Box(-BOUND, BOUND, (self.encoder.dim,), np.float32)
-        self.action_space = gym.spaces.Box(-1.0, 1.0, (self.mapper.size,), np.float32)
+        if self.mapper.size_repr == "log10":                       # every existing agent: unchanged
+            self.action_space = gym.spaces.Box(-1.0, 1.0, (self.mapper.size,), np.float32)
+        else:                                                    # optional size representations
+            self.action_space = gym.spaces.Box(self.mapper.low, self.mapper.high, (self.mapper.size,), np.float32)
         self.world = None
 
     # ------------------------------------------------------------------

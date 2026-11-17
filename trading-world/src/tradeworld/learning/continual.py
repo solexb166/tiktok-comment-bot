@@ -31,7 +31,10 @@ from .train import POLICY_DEFAULTS, PPO_DEFAULTS, U_LOG_STD_INIT
 
 TRAIN_STEPS_DATA = 200_000           # as the original gate
 HYPER_KEYS = ("learning_rate", "n_steps", "batch_size", "n_epochs", "gamma", "gae_lambda", "ent_coef",
-              "vf_coef", "max_grad_norm")
+              "vf_coef", "max_grad_norm", "target_kl")
+# Initial training settings a NEW experimental agent (version 1, no parent) may be created with
+# (Phase 3, proposal 0006 options A and D). Existing agents and continued versions never use them.
+INITIAL_SETTINGS = ("learning_rate", "n_epochs", "target_kl", "gamma")
 
 
 def hyperparameters(model) -> dict:
@@ -109,7 +112,10 @@ def _find_checkpoint(reg: Registry, agent_id: str, sha: str) -> dict:
 
 def train_version(reg: Registry, agent_id: str, *, steps: int, parent: int | None = None, changes: dict | None = None,
                   reason: str = "", n_envs: int = 8, checkpoint_every: int = 250_000, seed: int | None = None,
-                  log=print, recovered_from: dict | None = None, allow_parallel: bool = False) -> dict:
+                  log=print, recovered_from: dict | None = None, allow_parallel: bool = False,
+                  initial_settings: dict | None = None) -> dict:
+    """`initial_settings` (new agents only, parent=None): PPO settings in INITIAL_SETTINGS that
+    differ from PPO_DEFAULTS; recorded in the version record."""
     import stable_baselines3
     import torch
     from stable_baselines3 import PPO
@@ -142,10 +148,17 @@ def train_version(reg: Registry, agent_id: str, *, steps: int, parent: int | Non
     # ---- model: fresh, or the parent's checkpoint with its full state
     parent_ckpt = None
     rng_restored = False
+    initial_settings = dict(initial_settings or {})
+    bad = sorted(set(initial_settings) - set(INITIAL_SETTINGS))
+    if bad:
+        raise RegistryError(f"not an allowed initial setting: {bad}")
+    if initial_settings and parent is not None:
+        raise RegistryError("initial settings apply only to a new agent's first version")
     if parent is None:
         torch.manual_seed(seed)
         pk = dict(POLICY_DEFAULTS, activation_fn=torch.nn.Tanh)
-        model = PPO("MlpPolicy", venv, seed=seed, policy_kwargs=pk, verbose=0, device="cpu", **PPO_DEFAULTS)
+        model = PPO("MlpPolicy", venv, seed=seed, policy_kwargs=pk, verbose=0, device="cpu",
+                    **{**PPO_DEFAULTS, **initial_settings})
         with torch.no_grad():
             model.policy.log_std[-1] = float(U_LOG_STD_INIT)
     else:
@@ -190,6 +203,7 @@ def train_version(reg: Registry, agent_id: str, *, steps: int, parent: int | Non
     rec = dict(
         version=n, parent_version=parent, kind="initial" if parent is None else "continued",
         reason=reason, changes=changes, recovered_from=recovered_from,
+        **({"initial_settings": initial_settings} if initial_settings else {}),
         parent_checkpoint=None if parent_ckpt is None else {k: parent_ckpt.get(k) for k in ("model_sha256", "state_sha256", "step")},
         training=dict(
             algorithm="PPO", library=dict(sb3=stable_baselines3.__version__, torch=torch.__version__,

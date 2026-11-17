@@ -35,8 +35,23 @@ class DataLedger:
     def __init__(self, registry_root: Path):
         self.path = Path(registry_root) / "data" / "ledger.jsonl"
 
+    def inherited(self) -> list[Path]:
+        """Ledgers of other registries whose seeds also count as used here (read only). A separate
+        experiment registry lists the original registry's ledger in `data/inherits.json`, so its
+        "fresh" data is never data any earlier agent or round has used."""
+        cfg = self.path.parent / "inherits.json"
+        if not cfg.exists():
+            return []
+        import json
+        return [(self.path.parent / p).resolve() for p in json.loads(cfg.read_text())["ledgers"]]
+
     def entries(self) -> list[dict]:
-        return read_jsonl(self.path)
+        out = []
+        for p in self.inherited():
+            if not p.exists():
+                raise RegistryError(f"inherited data ledger {p} is missing; fresh data cannot be guaranteed")
+            out += read_jsonl(p)
+        return out + read_jsonl(self.path)
 
     def used(self, task: str) -> dict[int, str]:
         return {e["seed"]: e["purpose"] for e in self.entries() if e["task"] == task}

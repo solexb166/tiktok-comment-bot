@@ -48,6 +48,21 @@ class LifecycleError(RegistryError):
     pass
 
 
+def blob_root(root: Path) -> Path:
+    """Where a registry keeps its permanent blobs: `<root>/blobs`, unless the registry has a
+    `storage.json` naming a separate store (Phase 3: a dedicated artifact branch checked out next
+    to the repository). Records refer to blobs only by SHA-256, so the location changes no record."""
+    cfg = Path(root) / "storage.json"
+    if not cfg.exists():
+        return Path(root) / "blobs"
+    c = read_json(cfg)
+    env = c.get("path_env")
+    import os
+    if env and os.environ.get(env):
+        return Path(os.environ[env])
+    return (Path(root) / c["path"]).resolve()
+
+
 def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -75,7 +90,7 @@ def check_changes(changes: dict) -> None:
 class Registry:
     def __init__(self, root: Path | str = DEFAULT_REGISTRY):
         self.root = Path(root)
-        self.blobs = LocalBlobStore(self.root / "blobs")          # permanent (git-tracked for now)
+        self.blobs = LocalBlobStore(blob_root(self.root))         # permanent (git-tracked)
         self.cache = LocalBlobStore(self.root / "cache")          # regenerable, not tracked
 
     # ------------------------------------------------------------------ paths
@@ -88,7 +103,10 @@ class Registry:
     # ------------------------------------------------------------------ identity
     def create_agent(self, *, task: str, reward: str, seed: int, env_settings: dict, action_space: dict,
                      profile: str, episode_decisions: int, name: str | None = None,
-                     origin: str = "new", created_at: str | None = None, notes: str = "") -> str:
+                     origin: str = "new", created_at: str | None = None, notes: str = "",
+                     extra: dict | None = None) -> str:
+        """`extra` (optional): further identity fields of new experimental agents (e.g. their
+        experiment, arm and initial training configuration). Written once with the identity."""
         agent_id = "ag-" + uuid.uuid4().hex[:10]
         identity = dict(
             agent_id=agent_id, name=name or f"{task}-{reward}-seed{seed}", task=task, reward=reward,
@@ -96,6 +114,10 @@ class Registry:
             frozen=dict(task=task, reward=reward, env_settings=env_settings, action_space=action_space,
                         profile=profile, episode_decisions=int(episode_decisions)),
         )
+        clash = set(extra or {}) & set(identity)
+        if clash:
+            raise RegistryError(f"extra identity fields may not replace {sorted(clash)}")
+        identity.update(extra or {})
         d = self.root / "agents" / agent_id
         write_once_json(d / "identity.json", identity)
         self.event(agent_id, "created", at=identity["created_at"])
