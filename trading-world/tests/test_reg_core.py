@@ -134,3 +134,16 @@ def test_evaluation_must_reference_a_checkpoint_of_its_version(reg):
     version(reg, a, 1)
     with pytest.raises(Exception):
         reg.record_evaluation(a, dict(version=1, round_id="r", result="fail", checkpoint_sha256="0" * 64))
+
+
+def test_seal_detects_modified_or_deleted_records(reg):
+    from tradeworld.registry.registry import seal, verify_records
+    a = new(reg)
+    version(reg, a, 1)
+    seal(reg, "test")
+    assert verify_records(reg) == []
+    p = reg.root / "agents" / a / "versions" / "v0001.json"
+    p.write_text(p.read_text().replace('"version": 1', '"version": 1 '))
+    assert any("modified" in x for x in verify_records(reg))
+    p.unlink()
+    assert any("deleted" in x for x in verify_records(reg))

@@ -171,6 +171,8 @@ def evaluate(reg: Registry, agent_id: str, version: int, round_id: str, *, check
     """Evaluate one version on a round's test data and store the write-once record."""
     from .diagnosis import diagnose
     criteria = pinned_criteria(reg)
+    from .metrics import check_q2
+    q2_identity = check_q2(reg)
     ident = reg.identity(agent_id)
     ver = reg.version(agent_id, version)
     sha = checkpoint_sha or ver["final_checkpoint"]["model_sha256"]
@@ -195,7 +197,7 @@ def evaluate(reg: Registry, agent_id: str, version: int, round_id: str, *, check
     log = pd.DataFrame(rows)
     stored = store_decision_log(reg, log, stats)
     rec = dict(
-        version=version, round_id=round_id, checkpoint_sha256=sha, criteria=criteria,
+        version=version, round_id=round_id, checkpoint_sha256=sha, criteria=criteria, analysis_metrics=dict(Q2=q2_identity),
         test_steps=rnd.get("test_steps", TEST_STEPS_DATA),
         test_data=dict(task=ident["task"], seed=seed, data_hash=task.md.content_hash(),
                        episode_starts=[int(x) for x in starts], episode_reset_seeds=list(range(len(starts)))),

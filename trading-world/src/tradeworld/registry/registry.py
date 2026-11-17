@@ -265,3 +265,43 @@ class Registry:
     def rounds(self) -> list[dict]:
         d = self.root / "rounds"
         return sorted((read_json(p) for p in d.glob("*.json")), key=lambda r: r["recorded_at"]) if d.exists() else []
+
+
+# ---------------------------------------------------------------------------- tamper evidence
+IMMUTABLE_GLOBS = ("agents/*/identity.json", "agents/*/versions/*.json", "agents/*/evaluations/*.json",
+                   "rounds/*.json", "criteria/*.json", "metrics/*.json", "analyses/*/*.json",
+                   "experiments/*/manifest.json", "experiments/*/candidates.json")
+
+
+def _record_hashes(root: Path) -> dict:
+    import hashlib
+    out = {}
+    for g in IMMUTABLE_GLOBS:
+        for f in sorted(root.glob(g)):
+            out[str(f.relative_to(root))] = hashlib.sha256(f.read_bytes()).hexdigest()
+    return out
+
+
+def seal(reg: "Registry", note: str = "") -> dict:
+    """Append a seal: the checksum of every immutable record that exists now. Later
+    verification refuses any record that changed or disappeared after it was sealed."""
+    import hashlib
+    hashes = _record_hashes(reg.root)
+    root_hash = hashlib.sha256("\n".join(f"{k} {v}" for k, v in sorted(hashes.items())).encode()).hexdigest()
+    entry = dict(at=now_utc(), records=hashes, root=root_hash, count=len(hashes), note=note,
+                 code=code_version()["git_commit"])
+    append_jsonl(reg.root / "seals.jsonl", entry)
+    return entry
+
+
+def verify_records(reg: "Registry") -> list[str]:
+    """Problems found: sealed records that were modified or deleted since they were sealed."""
+    current = _record_hashes(reg.root)
+    problems = []
+    for entry in read_jsonl(reg.root / "seals.jsonl"):
+        for path, h in entry["records"].items():
+            if path not in current:
+                problems.append(f"{path}: deleted after being sealed at {entry['at']}")
+            elif current[path] != h:
+                problems.append(f"{path}: modified after being sealed at {entry['at']}")
+    return sorted(set(problems))

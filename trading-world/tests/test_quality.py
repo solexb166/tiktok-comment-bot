@@ -69,3 +69,37 @@ def test_episode_growth_is_deterministic_and_death_is_permanent(s6):
     a = episode_expected_growth(np.full(1000, 12.0), s6, 200, seed=3)
     b = episode_expected_growth(np.full(1000, 12.0), s6, 200, seed=3)
     assert np.array_equal(a, b) and np.mean(a <= math.log(0.05) + 1e-12) > 0.9
+
+
+# ------------------------------------------------------------------ Q2 (clamped Kelly score)
+from hypothesis import given, settings, strategies as hs
+
+from tradeworld.learning.quality import q2_floor, q2_metrics, q2_scores
+
+
+def test_q2_worked_examples(s6):
+    F = q2_floor(s6)
+    G, _ = s6.optimal()
+    assert q2_scores([0.0], s6)[0] == 0.0
+    assert q2_scores([G], s6)[0] == pytest.approx(1.0)
+    assert F == pytest.approx(-21.35, abs=0.01)
+    assert list(q2_scores([10.0, 20.0, 100.0, 1000.0], s6)) == [F] * 4      # all ruinous sizes tie at the worst
+
+
+@settings(max_examples=300, deadline=None)
+@given(hs.floats(0.0, 2000.0), hs.floats(0.0, 2000.0))
+def test_q2_never_rewards_a_bigger_position_beyond_the_optimum(a, b):
+    mk = KnownMarket.from_task(st.build("S6", 0, 1000))
+    G = mk.optimal()[0]
+    lo, hi = sorted((G + a, G + b))
+    s_lo, s_hi = q2_scores([lo, hi], mk)
+    assert s_hi <= s_lo + 1e-12
+    s_neg = q2_scores([-hi, -lo], mk)                                      # shorts: larger is never better
+    assert s_neg[0] <= s_neg[1] + 1e-12
+
+
+def test_q2_is_bounded_and_depends_only_on_decisions(s6):
+    s = q2_scores(np.linspace(-5000, 5000, 10001), s6)
+    assert s.max() == pytest.approx(1.0, abs=1e-3) and s.min() == pytest.approx(q2_floor(s6))
+    m = q2_metrics(np.r_[np.zeros(10), np.full(10, 20.0)], s6, np.r_[np.zeros(10), np.ones(10)])
+    assert m["q2_by_episode"] == [0.0, pytest.approx(q2_floor(s6))]

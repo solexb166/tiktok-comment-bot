@@ -87,6 +87,8 @@ class Experiment:
 
     def plan(self, conditions: list[str], steps: int = STEPS_PER_STAGE, checkpoint_every: int = CHECKPOINT_EVERY,
              compute: dict | None = None) -> dict:
+        from .metrics import Q2_DEFINITION, check_q2
+        q2_identity = check_q2(self.reg, require_frozen=True)
         agents = {}
         for reward in (GROWTH, CONTROL):
             for seed in (0, 1, 2):
@@ -101,14 +103,18 @@ class Experiment:
             arms=ARMS, control_arms=list(CONTROL_ARMS), stages=STAGES, steps_per_stage=steps,
             checkpoint_every=checkpoint_every, schedule={str(k): v for k, v in schedule().items()},
             evaluations=evaluation_count(), approval_conditions=conditions,
-            selection_rule=("For each growth seed, among its six continued versions (A1-A3, B1-B3), choose the one "
-                            "with the highest mean episode decision quality Q over every episode it played in "
-                            f"rounds 1-3, among versions whose mean median position size over those rounds is at "
-                            f"least {MIN_MEDIAN_SIZE}x. If no version qualifies, choose the highest Q and record that "
-                            "none qualified. Ties: lower ruinous share. Locked before round 4."),
+            decision_quality=dict(q2_identity, definition=Q2_DEFINITION),
+            selection_rule=("Rounds 1-3 only. For each growth seed, among its six continued versions (A1-A3, B1-B3), "
+                            "choose the one with the highest mean Q2.0 over every test run it played in rounds 1-3, "
+                            f"among eligible versions. Eligible: mean median position size over those rounds of at "
+                            f"least {MIN_MEDIAN_SIZE}x; for growth seed 1 also a mean median position size closer "
+                            "(in ratio) to the growth-optimal size than version 1's, both measured over rounds 1-3. "
+                            "If no version is eligible, choose the highest Q2 and record that none was eligible. "
+                            "Ties: lower ruinous share. Recorded and locked (write-once) before round 4; rounds 4 and 5 "
+                            "can never change it."),
             success_criteria=[
                 "C1 ruinous decisions fall to at most half of version 1's share, or below 1% (round 4)",
-                "C2 episode decision quality Q rises: 95% paired-bootstrap interval of (candidate - version 1) over "
+                "C2 decision quality Q2.0 rises: 95% paired-bootstrap interval of (candidate - version 1) over "
                 "the 20 identical test runs lies above zero (round 4)",
                 f"C3 median position size at least {MIN_MEDIAN_SIZE}x; if version 1's median was below "
                 f"{MIN_MEDIAN_SIZE}x, the candidate's median must also be closer (in ratio) to the growth-optimal "
@@ -210,6 +216,9 @@ class Experiment:
             raise RegistryError(f"stage {min(n, STAGES)} must be trained before round {n}")
         if n >= 4 and self.candidates() is None:
             raise RegistryError("candidates must be selected and locked before the confirmation round")
+        from .metrics import check_q2
+        if check_q2(self.reg, require_frozen=True)["checksum"] != self.manifest()["decision_quality"]["checksum"]:
+            raise RegistryError("the decision-quality score differs from the one in the experiment plan")
         rid = self.round_id(n)
         if rid is None:
             rid = create_round(self.reg, ["S6"], note=f"{EXPERIMENT_ID} round {n} "
@@ -251,36 +260,49 @@ class Experiment:
         for key, a in m["agents"].items():
             if a["reward"] != GROWTH:
                 continue
-            rows = []
-            for lab in labels_for(GROWTH, STAGES)[1:]:
+            g_star = self._g_star()
+
+            def pooled(lab):
                 Q, med, ruin, rounds = [], [], [], []
-                for n in (1, 2, 3):
+                for n in (1, 2, 3):                                      # selection uses rounds 1-3 only
                     e = self._eval(key, lab, self.round_id(n))
                     if e is None:
                         continue
                     mt = e["diagnosis"]["metrics"]
-                    Q += mt["dq_episode_quality_by_episode"]
+                    Q += mt["dq2_by_episode"]
                     med.append(mt["median_leverage"])
                     ruin.append(mt["dq_ruinous_share"])
                     rounds.append(n)
-                rows.append(dict(label=lab, version=self.version_of(key, lab), rounds=rounds,
-                                 episode_quality=float(np.mean(Q)), median_size=float(np.mean(med)),
-                                 ruinous_share=float(np.mean(ruin)), eligible=float(np.mean(med)) >= MIN_MEDIAN_SIZE))
+                return dict(label=lab, version=self.version_of(key, lab), rounds=rounds, q2=float(np.mean(Q)),
+                            median_size=float(np.mean(med)), ruinous_share=float(np.mean(ruin)))
+            base = pooled("v1")
+            dist = lambda x: abs(math.log(max(x, 1e-9) / g_star))
+            rows = []
+            for lab in labels_for(GROWTH, STAGES)[1:]:
+                r = pooled(lab)
+                r["eligible"] = r["median_size"] >= MIN_MEDIAN_SIZE
+                if a["seed"] == 1:                                       # seed 1: must move toward the optimum
+                    r["closer_to_optimum_than_v1"] = dist(r["median_size"]) < dist(base["median_size"])
+                    r["eligible"] = r["eligible"] and r["closer_to_optimum_than_v1"]
+                rows.append(r)
             pool = [r for r in rows if r["eligible"]] or rows
-            best = sorted(pool, key=lambda r: (-r["episode_quality"], r["ruinous_share"]))[0]
+            best = sorted(pool, key=lambda r: (-r["q2"], r["ruinous_share"]))[0]
             out["seeds"][key] = dict(candidate=best["label"], version=best["version"],
-                                     none_eligible=not any(r["eligible"] for r in rows),
+                                     none_eligible=not any(r["eligible"] for r in rows), version1_rounds_1_3=base,
                                      matched_control=matched_control_label(best["label"]), table=rows)
         write_once_json(self.dir / "candidates.json", out)
         self._log("candidates_locked", candidates={k: v["candidate"] for k, v in out["seeds"].items()})
         return out
 
     # ------------------------------------------------------------------ verdicts
-    def criteria(self, key: str, label: str, baseline: str = "v1") -> dict:
-        """C1-C4 for one version against version 1 (rounds 4 and 5)."""
+    def _g_star(self) -> float:
         from .quality import KnownMarket
         from . import synthetic_tasks as st
-        g_star = KnownMarket.from_task(st.build("S6", 0, 1000)).optimal()[0]
+        return KnownMarket.from_task(st.build("S6", 0, 1000)).optimal()[0]
+
+    def criteria(self, key: str, label: str, baseline: str = "v1") -> dict:
+        """C1-C4 for one version against version 1 (rounds 4 and 5)."""
+        g_star = self._g_star()
         res = {}
         for n in (4, 5):
             rid = self.round_id(n)
@@ -289,14 +311,14 @@ class Experiment:
                 res[n] = None
                 continue
             mc, mb = c["diagnosis"]["metrics"], b["diagnosis"]["metrics"]
-            d = np.array(mc["dq_episode_quality_by_episode"]) - np.array(mb["dq_episode_quality_by_episode"])
+            d = np.array(mc["dq2_by_episode"]) - np.array(mb["dq2_by_episode"])
             rng = np.random.default_rng(12345)
             boot = d[rng.integers(0, len(d), (BOOTSTRAP, len(d)))].mean(axis=1)
             lo, hi = np.percentile(boot, [2.5, 97.5])
             c1 = mc["dq_ruinous_share"] <= 0.5 * mb["dq_ruinous_share"] or mc["dq_ruinous_share"] < 0.01
             c2 = lo > 0
             c3 = mc["median_leverage"] >= MIN_MEDIAN_SIZE
-            if mb["median_leverage"] < MIN_MEDIAN_SIZE:
+            if mb["median_leverage"] < MIN_MEDIAN_SIZE or key == f"{GROWTH}-1":
                 dist = lambda x: abs(math.log(max(x, 1e-9) / g_star))
                 c3 = c3 and dist(mc["median_leverage"]) < dist(mb["median_leverage"])
             res[n] = dict(c1=bool(c1), c2=bool(c2), c3=bool(c3), q_diff=float(d.mean()), q_ci=[float(lo), float(hi)],
@@ -348,12 +370,12 @@ def report(exp: Experiment) -> str:
     L.append(f"Stages complete: {stages or 'none'}. Rounds complete: {rounds or 'none'}. "
              f"Candidates locked: {'yes' if exp.candidates() else 'no'}.\n")
     L += ["## Every version in every round\n",
-          "Growth = average change per 20-run test round. Q = episode decision quality (1 = optimal sizing, 0 = staying "
-          "out). q = per-decision quality on non-ruinous decisions. Ruinous = share of decisions at 9.5x or more. "
+          "Growth = average change per 20-run test round. Q2 = decision quality Q2.0 (1 = optimal sizing, 0 = staying "
+          "out, -21.35 = ruinous). q = per-decision quality on non-ruinous decisions. Ruinous = share of decisions at 9.5x or more. "
           "Jumps = share of consecutive decisions whose size changed more than tenfold. Crash exposure = average "
           "size before the largest moves / elsewhere (about 1 is right: crashes are unpredictable). After loss = "
           "size after a >2% loss / size before.\n",
-          "| Agent | Label | Version | Round | Verdict | Growth | Deaths | Ruinous | Q | q | Median size | Largest | "
+          "| Agent | Label | Version | Round | Verdict | Growth | Deaths | Ruinous | Q2 | q | Median size | Largest | "
           "Jumps | Typical size change | Crash exposure | Long | After loss |",
           "|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|"]
     for key, a in m["agents"].items():
@@ -368,7 +390,7 @@ def report(exp: Experiment) -> str:
                       if mt.get("leverage_before_big_moves") is not None and mt.get("leverage_elsewhere") else None)
                 L.append(f"| {key} | {lab} | v{e['version']} | {n} | {e['result']} | {100 * (math.exp(s['lg']) - 1):+.1f}% | "
                          f"{100 * s['died']:.0f}% | {_fmt(100 * mt['dq_ruinous_share'], '{:.1f}%')} | "
-                         f"{_fmt(mt['dq_episode_quality'])} | {_fmt(mt['dq_quality'])} | {_fmt(mt['median_leverage'])}x | "
+                         f"{_fmt(mt.get('dq2'))} | {_fmt(mt['dq_quality'])} | {_fmt(mt['median_leverage'])}x | "
                          f"{_fmt(mt['max_leverage'], '{:.0f}')}x | {_fmt(100 * mt['share_size_jumps_10x'] if mt.get('share_size_jumps_10x') is not None else None, '{:.1f}%')} | "
                          f"{_fmt(mt.get('median_size_change'), '{:.2f}x')} | {_fmt(ce)} | {_fmt(100 * mt['long_share'], '{:.0f}%')} | "
                          f"{_fmt(mt.get('size_after_loss_ratio'))} |")
@@ -397,15 +419,15 @@ def report(exp: Experiment) -> str:
     cand = exp.candidates()
     if cand:
         L += ["", "## Candidate selection (locked before round 4)\n", f"Locked at {cand['locked_at']}. Rule: {cand['rule']}\n",
-              "| Growth seed | Label | Rounds | Mean Q | Mean median size | Mean ruinous share | Eligible | Selected |",
+              "| Growth seed | Label | Rounds | Mean Q2 | Mean median size | Mean ruinous share | Eligible | Selected |",
               "|---|---|---|---|---|---|---|---|"]
         for key, c in cand["seeds"].items():
             for r in c["table"]:
-                L.append(f"| {key} | {r['label']} | {r['rounds']} | {r['episode_quality']:.2f} | {r['median_size']:.2f}x | "
+                L.append(f"| {key} | {r['label']} | {r['rounds']} | {r['q2']:.2f} | {r['median_size']:.2f}x | "
                          f"{100 * r['ruinous_share']:.1f}% | {'yes' if r['eligible'] else 'no'} | "
                          f"{'**selected**' if r['label'] == c['candidate'] else ''} |")
         L += ["", "## Confirmation (round 4) and replication (round 5)\n",
-              "| Agent | Candidate | Round | Ruinous v1 -> cand | C1 | Q difference (95% CI) | C2 | Median v1 -> cand | C3 |",
+              "| Agent | Candidate | Round | Ruinous v1 -> cand | C1 | Q2 difference (95% CI) | C2 | Median v1 -> cand | C3 |",
               "|---|---|---|---|---|---|---|---|---|"]
         passes, ctrl = 0, 0
         for key, c in cand["seeds"].items():

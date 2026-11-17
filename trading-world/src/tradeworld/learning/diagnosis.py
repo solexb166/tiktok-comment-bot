@@ -76,6 +76,9 @@ def behaviour_metrics(log: pd.DataFrame, task, identity: dict) -> dict:
         qm = quality_metrics(log["exposure_after_fill"].to_numpy(), mk, log["episode"].to_numpy())
         m.update({f"dq_{k}": v for k, v in qm.items()})
         m["growth_optimal_leverage"] = qm["optimal_size"]
+        from .quality import q2_metrics
+        q2 = q2_metrics(log["exposure_after_fill"].to_numpy(), mk, log["episode"].to_numpy())
+        m.update(dq2=q2["q2"], dq2_by_episode=q2["q2_by_episode"], dq2_floor=q2["floor"], dq2_version=q2["version"])
     # behaviour after a loss of more than 2% of equity: size at the next decision vs before
     eq0 = log["equity_before"].to_numpy()
     loss = (log["pnl"].to_numpy() / np.where(eq0 > 0, eq0, np.nan)) < -0.02

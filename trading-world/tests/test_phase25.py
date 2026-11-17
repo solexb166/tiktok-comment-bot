@@ -39,6 +39,10 @@ def exp(tmp_path, monkeypatch):
                                  profile="A_synthetic", episode_decisions=50)
             ct.train_version(reg, a, steps=128, n_envs=2, log=lambda m: None)
     e = p25.Experiment(reg)
+    with pytest.raises(RegistryError):
+        e.plan(["test conditions"], steps=128, checkpoint_every=64)        # Q2 must be frozen first
+    from tradeworld.learning.metrics import freeze_q2
+    freeze_q2(reg, approved_by="test")
     e.plan(["test conditions"], steps=128, checkpoint_every=64)
     return reg, e
 
@@ -59,6 +63,8 @@ def test_full_flow_with_guards(exp, monkeypatch):
         e.run_round(4, workers=2, log=lambda m: None)                  # no locked candidates yet
     cand = e.select()
     assert set(cand["seeds"]) == {"R1-0", "R1-1", "R1-2"}
+    assert all("closer_to_optimum_than_v1" in r for r in cand["seeds"]["R1-1"]["table"])
+    assert not any("closer_to_optimum_than_v1" in r for r in cand["seeds"]["R1-0"]["table"])
     assert all(c["candidate"] in ("A1", "A2", "A3", "B1", "B2", "B3") for c in cand["seeds"].values())
     with pytest.raises(RegistryError):
         e.select()                                                     # locked: cannot reselect

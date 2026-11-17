@@ -65,3 +65,36 @@ Candidate selection (rounds 1-3) uses Q. Criterion C1 uses the ruinous share. C2
 difference in Q over the 20 identical test runs. C3 uses the median position size against G*.
 On real market data the return process is unknown, so this score does not apply; only
 behavioural and consequence measures do.
+
+## Revision 2026-11-17: Q2.0 replaces Q (pending owner approval and freezing)
+
+The owner asked for worked examples at 10x, 20x and 100x before approving Q. They exposed the same
+kind of flaw in Q (the episode-replay score, here called Q1) as in the first variant: once death is
+near certain, the rare crash-free simulated paths decide the score, and those favour larger
+positions. Q1 scored 20x (-9.55) above 10x (-10.12). Q1 is therefore rejected as well.
+
+**Q2.0** scores each decision directly from the exact expected log growth g (defined above), which
+is concave in the position size:
+
+    s(G) = max(g(G) / g(G*), F)   for a non-ruinous decision,     s(G) = F   for a ruinous one,
+    F = g(G_ruin) / g(G*) = -21.353 in S6  (the score of the smallest ruinous position, 9.5x).
+
+Q2 of an episode is the mean of s over its decisions. Q2 of an evaluation is the mean over its
+episodes, and the per-episode values are used for paired comparisons. Worked examples: staying
+out 0, optimal 2.93x scores 1, and 10x, 20x and 100x all score exactly -21.353 (the worst, tied).
+
+Concavity guarantees that a position further beyond the optimum never scores higher. This is checked
+over 400,001 sizes and by a property-based test. Q2 needs no simulation, is exact, and uses
+only decisions and known parameters.
+
+Q2 does not count the decisions an agent would have made after an account died. Death timing
+depends on the realised path, so counting it would make the score depend on luck. Deaths are
+reported separately, and the ruinous decisions that cause them already score the minimum.
+
+Version 1 baselines recalculated with Q2.0 are stored as separate write-once records
+(`registry/analyses/decision-quality-Q2.0/`). Full worked examples and the baseline table are in
+`reports/phase25/q2_decision_quality.md`. The earlier scores remain in the original evaluation
+records, unchanged.
+
+Implementation checksum (to be frozen on approval as Q2.0):
+`0d0c6486487edacee4b54a34180d63855d77c413ab79e5bb15f27616aa292147`.

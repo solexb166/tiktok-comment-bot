@@ -157,3 +157,47 @@ def instability(exposure, episodes=None) -> dict:
     r = np.abs(np.log(b[ok] / a[ok]))
     return dict(median_size_change=float(np.exp(np.median(r))),            # typical factor between decisions
                 share_size_jumps_10x=float(np.mean(r > math.log(10))))
+
+
+# ---------------------------------------------------------------------------- Q2 (proposed final)
+# Version history of the decision-quality score (kept, never overwritten):
+#   q0  per-decision g with death as a one-step floor ......... rejected: rises above 10x
+#   Q1  episode replay on simulated paths, permanent death ..... rejected: 20x scored above 10x
+#       (once death is near certain, the rare crash-free paths decide, and they favour size)
+#   Q2  clamped Kelly score, below .............................. proposed
+Q2_VERSION = "Q2.0"
+
+
+def q2_floor(market: KnownMarket) -> float:
+    """The score of the smallest ruinous long position: g(G_ruin) / g(G*)."""
+    G_star, g_star = market.optimal()
+    G_ruin = market.ruin_long() if market.crash_prob else (1 - DEATH) / -math.expm1(market.m - 5 * market.sigma)
+    return float(market.growth(G_ruin)[0] / g_star)
+
+
+def q2_scores(exposure, market: KnownMarket) -> np.ndarray:
+    """Q2 per decision:  s(G) = max(g(G) / g(G*), F)  and  s(G) = F for a ruinous decision,
+    where F = g(G_ruin) / g(G*) is the score of the smallest ruinous long position.
+    Because g is concave, s rises to 1 at G* and never increases again as the position grows
+    beyond it; every ruinous size scores exactly F, the worst possible value."""
+    G = np.asarray(exposure, dtype=float)
+    _, g_star = market.optimal()
+    F = q2_floor(market)
+    if market.crash_prob:
+        ruin = market.ruinous(G)
+    else:
+        ruin = (G >= (1 - DEATH) / -math.expm1(market.m - 5 * market.sigma)) | (-G >= market.ruin_short())
+    s = np.full(G.shape, F)
+    ok = ~ruin
+    if ok.any():
+        s[ok] = np.maximum(market.growth(G[ok]) / g_star, F)
+    return s
+
+
+def q2_metrics(exposure, market: KnownMarket, episodes=None) -> dict:
+    """Q2 for recorded decisions: mean per episode (for paired comparisons) and overall."""
+    s = q2_scores(exposure, market)
+    ep = np.zeros(len(s), dtype=int) if episodes is None else np.asarray(episodes)
+    per_ep = [float(s[ep == e].mean()) for e in np.unique(ep)]
+    return dict(version=Q2_VERSION, q2=float(np.mean(per_ep)) if per_ep else None, q2_by_episode=per_ep,
+                floor=q2_floor(market), optimal_size=market.optimal()[0])

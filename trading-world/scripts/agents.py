@@ -158,6 +158,8 @@ def main():
     g.add_argument("--runs", default=str(GATE_RUNS))
     sub.add_parser("status")
     sub.add_parser("verify")
+    sl = sub.add_parser("seal")
+    sl.add_argument("--note", default="")
     r = sub.add_parser("round")
     r.add_argument("--tasks", required=True)
     r.add_argument("--note", default="")
@@ -189,9 +191,16 @@ def main():
     elif a.cmd == "status":
         status(reg)
     elif a.cmd == "verify":
+        from tradeworld.registry.registry import verify_records
         bad = reg.blobs.verify_all()
-        print("all blobs match their checksums" if not bad else f"CORRUPTED: {bad}")
-        sys.exit(1 if bad else 0)
+        print("all blobs match their checksums" if not bad else f"CORRUPTED BLOBS: {bad}")
+        changed = verify_records(reg)
+        print("no sealed record has changed" if not changed else "CHANGED RECORDS:\n  " + "\n  ".join(changed))
+        sys.exit(1 if bad or changed else 0)
+    elif a.cmd == "seal":
+        from tradeworld.registry.registry import seal
+        e = seal(reg, note=a.note)
+        print(f"sealed {e['count']} immutable records, root {e['root'][:16]}")
     elif a.cmd == "round":
         from tradeworld.learning.evaluate import create_round
         print(json.dumps(create_round(reg, a.tasks.split(","), a.note), indent=1))
