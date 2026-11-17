@@ -69,6 +69,20 @@ def behaviour_metrics(log: pd.DataFrame, task, identity: dict) -> dict:
         m["losses_on_sound_positions"] = float(np.mean(aligned[losses])) if losses.any() and has.any() else None
     g_opt = task.params.get("growth_optimal_G") if task is not None else None
     m["growth_optimal_leverage"] = g_opt
+    from .quality import KnownMarket, instability, quality_metrics
+    m.update(instability(log["exposure_after_fill"].to_numpy(), log["episode"].to_numpy()))
+    mk = KnownMarket.from_task(task) if task is not None else None
+    if mk is not None:
+        qm = quality_metrics(log["exposure_after_fill"].to_numpy(), mk, log["episode"].to_numpy())
+        m.update({f"dq_{k}": v for k, v in qm.items()})
+        m["growth_optimal_leverage"] = qm["optimal_size"]
+    # behaviour after a loss of more than 2% of equity: size at the next decision vs before
+    eq0 = log["equity_before"].to_numpy()
+    loss = (log["pnl"].to_numpy() / np.where(eq0 > 0, eq0, np.nan)) < -0.02
+    same = np.r_[log["episode"].to_numpy()[1:] == log["episode"].to_numpy()[:-1], False]
+    sel = loss & same & (lev > 1e-6)
+    m["size_after_loss_ratio"] = float(np.median(np.r_[lev[1:], np.nan][sel] / lev[sel])) if sel.any() else None
+    m["long_share"] = float(np.mean(log["exposure_after_fill"].to_numpy() > 1e-6))
     if task is not None and task.extra is not None:
         flag = task.extra[log["decision_row"].to_numpy(), 0]
         sw = np.flatnonzero(np.diff(flag) != 0) + 1
@@ -112,6 +126,15 @@ def diagnose(log: pd.DataFrame, task, identity: dict, summary: dict | None = Non
                    text="Possible: the agent has not learned that rare large moves make positions above "
                         f"~{m['fatal_leverage']:.0f}x fatal. Test: compare its leverage just before large moves "
                         "with its leverage elsewhere, across versions."))
+
+    # 1b. ruinous decisions judged against the known market (S6/S7)
+    if m.get("dq_ruinous_share"):
+        O(dict(code="ruinous_decisions",
+               text=f"{_pct(m['dq_ruinous_share'])} of decisions were ruinous: positions of "
+                    f"{m['dq_ruin_size_long']:.1f}x or more, where one ordinary crash in this market ends the "
+                    f"account. Decision-quality score {m['dq_quality']:.2f} on the other decisions "
+                    f"(1 = optimal {m['dq_optimal_size']:.2f}x, 0 = staying out); episode quality "
+                    f"{m['dq_episode_quality']:.2f}.", share=m["dq_ruinous_share"]))
 
     # 2. leverage spikes
     if m["spikes"] and m["spike_ratio"] > 50:

@@ -19,7 +19,7 @@ from pathlib import Path
 import yaml
 
 from .registry import ROOT, FrozenRuleError, now_utc
-from .store import RegistryError, append_jsonl, read_jsonl
+from .store import RegistryError, append_jsonl, locked, read_jsonl
 
 TRAIN_FRESH_START = 1_000
 TEST_ROUND_START = 20_000
@@ -62,6 +62,13 @@ class DataLedger:
         if s >= limit:
             raise RegistryError(f"no fresh {purpose} seeds left for {task}")
         return s
+
+    def allocate(self, task: str, purpose: str, round_id: str | None = None, note: str = "") -> int:
+        """Pick and record a never-used seed in one atomic step (safe for parallel jobs)."""
+        with locked(self.path.parent / "allocate"):        # separate from the append lock (no self-deadlock)
+            seed = self.fresh_seed(task, purpose)
+            self.record(task, seed, purpose, round_id=round_id, note=note)
+        return seed
 
     def sealed_seed(self, task: str, reason: str, approved_by: str) -> int:
         """The sealed final-assessment seed. Every access is logged with its reason."""

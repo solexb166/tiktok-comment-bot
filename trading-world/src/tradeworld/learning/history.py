@@ -22,6 +22,12 @@ LEVERAGE_BANDS = (1.0, 3.0, 10.0, 100.0)
 
 
 class EpisodeStatsWrapper(gym.Wrapper):
+    def __init__(self, env, market=None):
+        """`market` (optional, quality.KnownMarket): adds the share of ruinous decisions and the
+        decision-quality score to each training episode's summary."""
+        super().__init__(env)
+        self.market = market
+
     def reset(self, **kw):
         obs, info = self.env.reset(**kw)
         a = self.env.unwrapped.account
@@ -58,8 +64,20 @@ class EpisodeStatsWrapper(gym.Wrapper):
                 costs=float(sum(a.costs_total.values())),
                 **{f"share_gross_over_{int(b)}x": float(np.mean(g > b)) for b in LEVERAGE_BANDS},
             )
+            if self.market is not None and s["net"]:
+                net = np.array(s["net"])
+                ruin = self.market.ruinous(net)
+                g_star = self._g_star()
+                ok = ~ruin
+                stats["share_ruinous"] = float(np.mean(ruin))
+                stats["decision_quality"] = float(np.mean(self.market.growth(net[ok]) / g_star)) if ok.any() else None
             info = dict(info, episode_stats=stats)
         return obs, r, te, tr, info
+
+    def _g_star(self):
+        if not hasattr(self, "_gs"):
+            self._gs = self.market.optimal()[1]
+        return self._gs
 
 
 def _metric_writer(rows: list):

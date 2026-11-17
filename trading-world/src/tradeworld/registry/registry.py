@@ -21,7 +21,7 @@ import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .store import (LocalBlobStore, RegistryError, WriteOnceError, append_jsonl, read_json,
+from .store import (LocalBlobStore, RegistryError, WriteOnceError, append_jsonl, locked, read_json,
                     read_jsonl, write_once_json)
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -172,28 +172,38 @@ class Registry:
         return read_json(p)
 
     def next_version(self, agent_id: str) -> int:
-        v = self.versions(agent_id)
-        return (v[-1]["version"] + 1) if v else 1
+        """Next unused version number (recorded versions and attempts already started)."""
+        used = [v["version"] for v in self.versions(agent_id)]
+        used += [e["version"] for e in self.events(agent_id) if e["kind"] == "training_started"]
+        return max(used, default=0) + 1
 
-    def start_training(self, agent_id: str, version: int, parent: int | None, changes: dict,
-                       info: dict | None = None) -> None:
+    def start_training(self, agent_id: str, version: int | None, parent: int | None, changes: dict,
+                       info: dict | None = None, allow_parallel: bool = False) -> int:
+        """Allocate the next version number to a new training attempt (atomic across processes).
+        Several attempts of one agent may run in parallel only with allow_parallel (branches)."""
         check_changes(changes)
-        if version != self.next_version(agent_id):
-            raise LifecycleError(f"{agent_id}: next version is {self.next_version(agent_id)}, not {version}")
-        if parent is not None:
-            self.version(agent_id, parent)                         # must exist
-        if self.state(agent_id)["status"] in ("training", "continued_training"):
-            raise LifecycleError(f"{agent_id} is already training")
-        if self.state(agent_id)["status"] == "retired":
-            raise LifecycleError(f"{agent_id} is retired")
-        self.event(agent_id, "training_started", version=version, parent=parent, changes=changes, info=info or {})
+        with locked(self._agent_dir(agent_id) / "versions"):
+            n = self.next_version(agent_id)
+            if version is not None and version != n:
+                raise LifecycleError(f"{agent_id}: next version is {n}, not {version}")
+            if parent is not None:
+                self.version(agent_id, parent)                     # must exist
+            st = self.state(agent_id)["status"]
+            if st in ("training", "continued_training") and not allow_parallel:
+                raise LifecycleError(f"{agent_id} is already training")
+            if st == "retired":
+                raise LifecycleError(f"{agent_id} is retired")
+            self.event(agent_id, "training_started", version=n, parent=parent, changes=changes, info=info or {})
+        return n
 
     def record_version(self, agent_id: str, record: dict) -> dict:
         """Write version `record['version']` once. Verifies the frozen rules did not change."""
         ident = self.identity(agent_id)
         n = int(record["version"])
-        if n != self.next_version(agent_id):
-            raise WriteOnceError(f"{agent_id}: version {n} exists or skips a number")
+        if any(v["version"] == n for v in self.versions(agent_id)):
+            raise WriteOnceError(f"{agent_id}: version {n} already exists and is immutable")
+        if not any(e["kind"] == "training_started" and e["version"] == n for e in self.events(agent_id)):
+            raise RegistryError(f"{agent_id}: version {n} was never started")
         if record.get("parent_version") is not None:
             self.version(agent_id, record["parent_version"])
         check_changes(record.get("changes", {}))

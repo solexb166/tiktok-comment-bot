@@ -156,15 +156,35 @@ def read_json(path: Path):
     return json.loads(Path(path).read_text())
 
 
+class locked:
+    """Exclusive inter-process lock on `<path>.lock` (parallel training and evaluation jobs)."""
+
+    def __init__(self, path: Path):
+        self.path = Path(str(path) + ".lock")
+
+    def __enter__(self):
+        import fcntl
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.f = open(self.path, "a")
+        fcntl.flock(self.f, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *exc):
+        import fcntl
+        fcntl.flock(self.f, fcntl.LOCK_UN)
+        self.f.close()
+
+
 def append_jsonl(path: Path, obj) -> None:
-    """Append one event to an append-only log."""
+    """Append one event to an append-only log (locked against concurrent writers)."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     line = json.dumps(obj, sort_keys=True, default=_json_default)
-    with open(path, "a") as f:
-        f.write(line + "\n")
-        f.flush()
-        os.fsync(f.fileno())
+    with locked(path):
+        with open(path, "a") as f:
+            f.write(line + "\n")
+            f.flush()
+            os.fsync(f.fileno())
 
 
 def read_jsonl(path: Path) -> list:

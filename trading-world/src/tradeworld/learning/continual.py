@@ -26,6 +26,7 @@ from .checkpoint import load_checkpoint, restore_state
 from .env import TradeWorldEnv
 from .evaluate import mapper_from
 from .history import EpisodeStatsWrapper, checkpoint_callback, frame_bytes, history_callback
+from .quality import KnownMarket
 from .train import POLICY_DEFAULTS, PPO_DEFAULTS, U_LOG_STD_INIT
 
 TRAIN_STEPS_DATA = 200_000           # as the original gate
@@ -83,7 +84,8 @@ def build_venv(identity: dict, tasks: list, n_envs: int, seed: int):
         def _f():
             t = tasks[rank % len(tasks)]
             env = EpisodeStatsWrapper(TradeWorldEnv(t.md, t.profile, reward=f["reward"], extra=t.extra, mapper=mapper,
-                                                    episode_decisions=f["episode_decisions"], **f["env_settings"]))
+                                                    episode_decisions=f["episode_decisions"], **f["env_settings"]),
+                                      market=KnownMarket.from_task(t))
             env.reset(seed=seed * 1000 + rank)
             return env
         return _f
@@ -107,7 +109,7 @@ def _find_checkpoint(reg: Registry, agent_id: str, sha: str) -> dict:
 
 def train_version(reg: Registry, agent_id: str, *, steps: int, parent: int | None = None, changes: dict | None = None,
                   reason: str = "", n_envs: int = 8, checkpoint_every: int = 250_000, seed: int | None = None,
-                  log=print, recovered_from: dict | None = None) -> dict:
+                  log=print, recovered_from: dict | None = None, allow_parallel: bool = False) -> dict:
     import stable_baselines3
     import torch
     from stable_baselines3 import PPO
@@ -116,23 +118,25 @@ def train_version(reg: Registry, agent_id: str, *, steps: int, parent: int | Non
     changes = dict(changes or {})
     check_changes(changes)
     ident = reg.identity(agent_id)
-    n = reg.next_version(agent_id)
     ledger = DataLedger(reg.root)
 
     # ---- training data: the parent's (default) or fresh, never-used seeds
     if "train_data_seeds" in changes:
         seeds = []
         for s in changes["train_data_seeds"]:
-            s = ledger.fresh_seed(ident["task"], "train") if s == "fresh" else int(s)
-            ledger.record(ident["task"], s, "train", note=f"{agent_id} v{n}")
-            seeds.append(s)
+            if s == "fresh":
+                s = ledger.allocate(ident["task"], "train", note=f"{agent_id} continued training")
+            else:
+                ledger.record(ident["task"], int(s), "train", note=f"{agent_id} continued training")
+            seeds.append(int(s))
+        changes = dict(changes, train_data_seeds=seeds)        # record the actual seeds used
     elif parent is not None:
         seeds = [d["seed"] for d in reg.version(agent_id, parent)["training"]["train_data"]]
     else:
         seeds = [ident["original_seed"]]
     tasks = [st.build(ident["task"], s, TRAIN_STEPS_DATA) for s in seeds]
     n_envs = int(changes.get("n_envs", n_envs))
-    seed = int(seed if seed is not None else ident["original_seed"] * 100 + n)
+    seed = int(seed if seed is not None else ident["original_seed"] * 100 + len(reg.events(agent_id)))
     venv = build_venv(ident, tasks, n_envs, seed)
 
     # ---- model: fresh, or the parent's checkpoint with its full state
@@ -169,7 +173,7 @@ def train_version(reg: Registry, agent_id: str, *, steps: int, parent: int | Non
     start_info = dict(n_envs=n_envs, train_data_seeds=seeds, seed=seed, step_start=int(model.num_timesteps),
                       parent_checkpoint=None if parent_ckpt is None else
                       {k: parent_ckpt.get(k) for k in ("model_sha256", "state_sha256", "step")})
-    reg.start_training(agent_id, n, parent, changes, info=start_info)
+    n = reg.start_training(agent_id, None, parent, changes, info=start_info, allow_parallel=allow_parallel)
     meta = dict(version=n, n_envs=n_envs, train_data_seeds=seeds)
     hist = history_callback()
     inflight = reg.root / "agents" / agent_id / "inflight" / f"v{n:04d}.jsonl"

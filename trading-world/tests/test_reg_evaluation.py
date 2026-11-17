@@ -101,7 +101,7 @@ def test_diagnosis_separates_observations_from_explanations():
         exposure_after_fill=lev, market_return=np.where(np.arange(n) % 97 == 0, np.log(0.9), 0.001),
         expected_return=np.full(n, 1e-4), position_change="hold", pnl=np.r_[-np.ones(10), np.ones(n - 10)],
         died=np.isin(np.arange(n), [50, 120]), death_reason=np.where(np.isin(np.arange(n), [50, 120]), "equity_floor", ""),
-        cost_spread=0.0, cost_slippage=0.0, cost_commission=0.0, cost_swap=0.0))
+        cost_spread=0.0, cost_slippage=0.0, cost_commission=0.0, cost_swap=0.0, equity_before=10.0))
     d = diagnose(log, t, ident(), None)
     codes = {o["code"] for o in d["observations"]}
     assert "deaths_after_excessive_leverage" in codes and "leverage_spikes" in codes
