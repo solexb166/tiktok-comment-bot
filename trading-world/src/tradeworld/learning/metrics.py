@@ -39,9 +39,12 @@ def q2_freeze_path(reg: Registry):
     return reg.root / "metrics" / f"{quality.Q2_VERSION}.json"
 
 
-def freeze_q2(reg: Registry, approved_by: str, note: str = "") -> dict:
+def freeze_q2(reg: Registry, approved_by: str, note: str = "", scope=("S6",)) -> dict:
     rec = dict(metric="decision-quality", version=quality.Q2_VERSION, checksum=q2_checksum(),
                definition=Q2_DEFINITION, frozen_at=now_utc(), approved_by=approved_by, note=note,
+               scope=list(scope),
+               scope_note=("Exact for S6 (verified: reports/phase25/q2_math_verification.md). Not frozen for S7, "
+                           "where the quadrature tail cap affects longs from about 5.9x; S7 values are provisional."),
                history=["q0 per-decision score with a one-step death floor: rejected (rises again above 10x)",
                         "Q1 episode replay on simulated paths with permanent death: rejected (scored 20x above 10x)",
                         "Q2.0 clamped Kelly score: frozen"])

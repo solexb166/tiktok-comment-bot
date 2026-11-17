@@ -30,6 +30,11 @@ CONDITIONS = [
     "criteria; no leverage cap, new penalties, reward or learning-algorithm changes.",
     "7 Arms C and D not approved.",
     "8 Report every agent and version, including failures.",
+    "9 Decision-quality score Q2.0 (clamped Kelly) approved by the owner on condition that the mathematics is correct; "
+    "independent verification passed 36 of 36 checks (reports/phase25/q2_math_verification.md); frozen for S6.",
+    "10 Selection: highest mean Q2.0 over rounds 1-3 among versions with median size >= 0.5x; growth seed 1 must also "
+    "be closer to the growth-optimal size than version 1 (rounds 1-3). Locked before round 4.",
+    "11 No trading style is prescribed (decision 0005); agents discover their own approach and position sizing.",
 ]
 
 
@@ -43,7 +48,7 @@ def main():
     e = p25.Experiment(Registry(a.registry))
     if a.cmd == "plan":
         e.plan(CONDITIONS, compute=dict(training_steps=27_000_000, evaluations=138,
-                                        estimate="about 2 h 15 min on 4 cores (37 min per stage, about 13 min of evaluations)",
+                                        estimate="about 2 h 10 min on 4 cores (measured: 12.4 min per 1M-step job with 4 in parallel, 21.5 s per evaluation)",
                                         storage="about 80 MB in the repository (checkpoints about 60 MB)"))
         print("manifest written")
     elif a.cmd == "stage":

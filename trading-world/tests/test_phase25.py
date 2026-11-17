@@ -90,3 +90,35 @@ def _small_venv(real):
     def f(identity, tasks, n_envs, seed):
         return real(identity, tasks, 2, seed)
     return f
+
+
+def test_stage_resumes_an_interrupted_attempt_from_its_checkpoint(exp, monkeypatch):
+    reg, e = exp
+    monkeypatch.setattr(ct, "build_venv", _small_venv(ct.build_venv))
+    a = e.manifest()["agents"]["R1-0"]["agent_id"]
+    real = ct.checkpoint_callback
+
+    def crashing(*args, **kw):
+        cb = real(*args, **kw)
+        orig = cb.save
+
+        def save(kind):
+            rec = orig(kind)
+            if kind == "periodic":
+                raise KeyboardInterrupt("container restarted")
+            return rec
+        cb.save = save
+        return cb
+    monkeypatch.setattr(ct, "checkpoint_callback", crashing)
+    with pytest.raises(KeyboardInterrupt):                       # arm A stage 1 dies after one checkpoint
+        ct.train_version(reg, a, steps=128, parent=1, changes={"train_steps": 128, "checkpoint_every": 64},
+                         checkpoint_every=64, allow_parallel=True, log=lambda m: None)
+    monkeypatch.setattr(ct, "checkpoint_callback", real)
+    jobs = {(j["key"], j["label"]): j for j in e.stage_jobs(1)}
+    assert jobs[("R1-0", "A1")].get("recover") == 2
+    e.run_stage(1, workers=2, log=lambda m: None)
+    v = e.version_of("R1-0", "A1")
+    rec = reg.version(a, v)
+    assert reg.version(a, 2)["kind"] == "interrupted" and rec["parent_version"] == 2
+    assert rec["parent_checkpoint"]["model_sha256"] == reg.version(a, 2)["final_checkpoint"]["model_sha256"]
+    assert e.stage_complete(1)

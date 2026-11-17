@@ -64,8 +64,8 @@ for name, r, ev in sorted(rows, key=lambda x: x[0]):
     ps = r["previous_scores"]
     L.append(f"| {name} | **{r['q2']:+.3f}** | {ps['Q1']:+.3f} | {ps['q_nonruinous']:+.3f} | {100 * r['ruinous_share']:.1f}% | "
              f"{100 * ev['summary']['died']:.0f}% | {ev['diagnosis']['metrics']['median_leverage']:.2f}x | {ev['result']} |")
-L.append("\nS7's growth-optimal size is 4.99x; its floor is the score of the size at which a 5-sigma fall reaches the "
-         "death line (19.4x).")
+L.append("\nS7 values are provisional: Q2.0 is frozen for S6 only (in S7 the quadrature tail cap acts for longs from "
+         "about 5.9x; see reports/phase25/q2_math_verification.md). S7's growth-optimal size is 4.99x.")
 out = ROOT / "reports" / "phase25" / "q2_decision_quality.md"
 out.write_text("\n".join(L) + "\n")
 print("\n".join(L))

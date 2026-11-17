@@ -173,6 +173,21 @@ class Experiment:
         return hits[0] if hits else None
 
     # ------------------------------------------------------------------ training
+    def _interrupted(self, agent_id: str, parent: int, arm: str) -> int | None:
+        """An attempt for this arm and stage that started but never finished (e.g. container restart)."""
+        versions = {v["version"]: v for v in self.reg.versions(agent_id)}
+        used_as_parent = {v.get("parent_version") for v in versions.values()}
+        closed = {e["version"] for e in self.reg.events(agent_id) if e["kind"] == "training_abandoned"}
+        for e in self.reg.events(agent_id):
+            if e["kind"] != "training_started" or e["version"] in closed or e["version"] in used_as_parent:
+                continue
+            rec = versions.get(e["version"])
+            if rec is not None and rec["kind"] != "interrupted":           # finished normally
+                continue
+            if e.get("parent") == parent and (("train_data_seeds" in e.get("changes", {})) == (arm == "B")):
+                return e["version"]                                        # killed, or stopped with an error
+        return None
+
     def stage_jobs(self, k: int) -> list[dict]:
         if k > 1 and not self.stage_complete(k - 1):
             raise RegistryError(f"stage {k - 1} is not complete")
@@ -184,6 +199,13 @@ class Experiment:
                 if self.version_of(key, label) is not None:
                     continue
                 parent = self.version_of(key, parent_label(label))
+                stuck = self._interrupted(a["agent_id"], parent, arm)
+                if stuck is not None:
+                    target = self.reg.version(a["agent_id"], parent)["final_checkpoint"]["step"] + m["steps_per_stage"]
+                    jobs.append(dict(key=key, agent_id=a["agent_id"], label=label, parent=parent, recover=stuck,
+                                     target_step=target, reason=f"{EXPERIMENT_ID} arm {arm}, stage {k}: resumed after "
+                                     f"interruption of v{stuck}"))
+                    continue
                 changes = {"train_steps": m["steps_per_stage"], "checkpoint_every": m["checkpoint_every"]}
                 if arm == "B":
                     changes["train_data_seeds"] = ["fresh"]
@@ -335,8 +357,19 @@ def _train_job(args):
     root, job = args
     import torch
     torch.set_num_threads(1)
-    from .continual import train_version
+    from .continual import record_interrupted, recover, train_version
     reg = Registry(root)
+    if job.get("recover") is not None:
+        v = record_interrupted(reg, job["agent_id"], job["recover"], "interrupted (container restart); resumed")
+        if v is not None:                                   # it saved checkpoints: continue from the last one
+            remaining = max(job["target_step"] - v["final_checkpoint"]["step"], 8192)
+            rec = recover(reg, job["agent_id"], job["recover"], steps=remaining, reason=job["reason"], log=lambda m: None)
+            return job, rec
+        job = dict(job, changes={"train_steps": job["target_step"]}, recover=None)   # nothing saved: start again
+        m = Experiment(reg).manifest()
+        job.update(steps=m["steps_per_stage"], checkpoint_every=m["checkpoint_every"],
+                   changes={"train_steps": m["steps_per_stage"], "checkpoint_every": m["checkpoint_every"],
+                            **({"train_data_seeds": ["fresh"]} if job["label"].startswith("B") else {})})
     rec = train_version(reg, job["agent_id"], steps=job["steps"], parent=job["parent"], changes=job["changes"],
                         reason=job["reason"], checkpoint_every=job["checkpoint_every"], allow_parallel=True,
                         log=lambda m: None)

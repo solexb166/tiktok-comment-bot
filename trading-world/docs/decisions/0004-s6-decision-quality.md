@@ -98,3 +98,18 @@ records, unchanged.
 
 Implementation checksum (to be frozen on approval as Q2.0):
 `0d0c6486487edacee4b54a34180d63855d77c413ab79e5bb15f27616aa292147`.
+
+### Verification and scope (before freezing)
+
+Independent verification (`scripts/verify_q2_math.py`, `reports/phase25/q2_math_verification.md`):
+36 of 36 checks pass. g matches Simpson integration to about 1e-10 relative and 10-million-draw
+Monte Carlo within about 1.4 standard errors at every size tested. An independent search finds the
+same optimum (2.93073x, difference 2e-7). The analytic second derivative is negative everywhere. A
+crash at 9.5x leaves exactly the 5% death line. The score never rises beyond the optimum, on either side.
+
+Scope. In a normal model any position above 1x can in principle be wiped out by an extreme enough
+move, and the quadrature caps the logarithm at its most extreme nodes. For S6 that cap acts only
+where the score is already clamped at F (shorts beyond -17.3x, clamped from -15.4x; longs beyond
+18.6x, clamped from 9.5x), so every S6 score is exact. For S7 (about three times the volatility) the
+cap acts for longs from about 5.9x, below its 19.65x clamp. **Q2.0 is therefore frozen for S6 only.**
+The S7 baseline values in `registry/analyses/decision-quality-Q2.0/` are provisional.

@@ -246,6 +246,6 @@ def recover(reg: Registry, agent_id: str, version: int, *, steps: int, reason: s
         raise RegistryError(f"{agent_id} v{version} saved no checkpoint before it stopped")
     changes = {k: x for k, x in v.get("changes", {}).items() if k in ALLOWED_CHANGES and k != "resume_from_checkpoint"}
     return train_version(reg, agent_id, steps=steps, parent=version, changes=changes, reason=reason,
-                         n_envs=v["training"]["n_envs"], log=log,
+                         n_envs=v["training"]["n_envs"], log=log, allow_parallel=True,
                          recovered_from=dict(version=version, model_sha256=v["final_checkpoint"]["model_sha256"],
                                              step=v["final_checkpoint"]["step"]))

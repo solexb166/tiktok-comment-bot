@@ -50,4 +50,4 @@ From the preserved decision records of each agent's original gate evaluation. St
 | S7-R2-seed1 | **+0.269** | +0.243 | -0.472 | 0.0% | 0% | 0.57x | pass |
 | S7-R2-seed2 | **+0.255** | +0.009 | -20.760 | 0.0% | 10% | 0.94x | pass |
 
-S7's growth-optimal size is 4.99x; its floor is the score of the size at which a 5-sigma fall reaches the death line (19.4x).
+S7 values are provisional: Q2.0 is frozen for S6 only (in S7 the quadrature tail cap acts for longs from about 5.9x; see reports/phase25/q2_math_verification.md). S7's growth-optimal size is 4.99x.
