@@ -1,0 +1,21 @@
+# Real-market data splits (architecture §9.1). Embargo gaps keep neighbouring splits apart.
+# `allowed` lists the purposes a split may serve. The final holdout is sealed: it may only be
+# read for the final assessment, with a logged reason (registry/datasets.py).
+splits:
+  train:
+    start: 2018-01-01
+    end: 2022-12-31
+    allowed: [train]
+  validation:
+    start: 2023-01-15
+    end: 2023-12-31
+    allowed: [validation, evaluation_round]
+  test:
+    start: 2024-01-15
+    end: 2025-06-30
+    allowed: [milestone_test]
+  final_holdout:
+    start: 2025-07-01
+    end: 2099-12-31
+    sealed: true
+    allowed: [final_assessment]
