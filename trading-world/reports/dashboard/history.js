@@ -164,7 +164,7 @@ dash.draw('hist-diagnosis', (ul) => {
   ul.replaceChildren();
   if (!rows.length) {
     const li = document.createElement('li');
-    li.textContent = twH_ok('registry_diagnosis') ? 'No problems were detected in this agent\'s recorded decisions.' : '—';
+    li.textContent = twH_ok('registry_diagnosis') ? 'No problems were detected in this agent’s recorded decisions.' : '—';
     ul.append(li);
     return;
   }
