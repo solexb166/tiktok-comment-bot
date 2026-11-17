@@ -47,7 +47,7 @@ def run_job(args):
 
     from tradeworld.interface.actions import ActionMapper
     from tradeworld.learning import synthetic_tasks as st
-    from tradeworld.learning.train import (POLICY_DEFAULTS, PPO_DEFAULTS, matched_random_policy,
+    from tradeworld.learning.train import (POLICY_DEFAULTS, PPO_DEFAULTS, U_LOG_STD_INIT, matched_random_policy,
                                            model_policy, run_episodes, train_ppo)
 
     t0 = time.time()
@@ -55,8 +55,9 @@ def run_job(args):
     test = st.build(task_name, TEST_SEED_OFFSET + seed, TEST_STEPS_DATA)
     ppo_kw = dict(overrides.get("ppo", {}))
     pol_kw = dict(overrides.get("policy", {}))
+    u_std = overrides.get("u_log_std_init", U_LOG_STD_INIT)
     model = train_ppo(train, reward, seed, steps, episode_decisions=EPISODE, ppo_kwargs=ppo_kw,
-                      policy_kwargs=pol_kw, log=lambda m: print(m, flush=True))
+                      policy_kwargs=pol_kw, log=lambda m: print(m, flush=True), u_log_std_init=u_std)
     hi = len(test.md.times) - 31 - EPISODE - 5
     starts = np.linspace(0, hi, TEST_EPISODES).astype(int)
     stats = run_episodes(model_policy(model), test, starts, EPISODE, reward=reward)
@@ -69,7 +70,7 @@ def run_job(args):
                       test_seed=TEST_SEED_OFFSET + seed, python=platform.python_version(),
                       torch=torch.__version__, sb3=stable_baselines3.__version__,
                       gymnasium=gymnasium.__version__, numpy=np.__version__,
-                      ppo={**PPO_DEFAULTS, **ppo_kw}, policy={**POLICY_DEFAULTS, **pol_kw},
+                      ppo={**PPO_DEFAULTS, **ppo_kw}, policy={**POLICY_DEFAULTS, **pol_kw}, u_log_std_init=u_std,
                       env=train.env_kwargs, episode_decisions=EPISODE, test_episodes=TEST_EPISODES),
     )
     if task_name == "S1":

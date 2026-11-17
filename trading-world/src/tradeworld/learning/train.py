@@ -17,6 +17,12 @@ from .env import TradeWorldEnv
 PPO_DEFAULTS = dict(n_steps=1024, batch_size=512, n_epochs=10, learning_rate=3e-4, gamma=0.99,
                     gae_lambda=0.95, clip_range=0.2, ent_coef=0.0)
 POLICY_DEFAULTS = dict(net_arch=[64, 64], log_std_init=-0.5)
+# Initial exploration noise (log std) on the gross-exposure dimension u. Because exposure is
+# G = 10**(4u), Gaussian noise on u is multiplicative on leverage: std s gives E[G^2] inflated by
+# exp(2 * (4 ln10 s)^2). With s = 0.6 that is ~1e26, so early exploration samples absurd leverage
+# and the agent learns to stay flat before it can learn anything else. A smaller initial noise on
+# u is an exploration setting, not a limit: PPO learns the noise level and can reach any u.
+U_LOG_STD_INIT = -2.5
 
 
 def make_env_fn(task, reward, episode_decisions, rank, seed, mapper=None, start=None, stop=None):
@@ -30,7 +36,8 @@ def make_env_fn(task, reward, episode_decisions, rank, seed, mapper=None, start=
 
 def train_ppo(task, reward: str, seed: int, total_steps: int, n_envs: int = 8,
               episode_decisions: int = 1000, ppo_kwargs: dict | None = None,
-              policy_kwargs: dict | None = None, mapper: ActionMapper | None = None, log=print):
+              policy_kwargs: dict | None = None, mapper: ActionMapper | None = None, log=print,
+              u_log_std_init: float | None = U_LOG_STD_INIT):
     import torch
     from stable_baselines3 import PPO
     from stable_baselines3.common.vec_env import DummyVecEnv
@@ -42,6 +49,9 @@ def train_ppo(task, reward: str, seed: int, total_steps: int, n_envs: int = 8,
     pk = {**POLICY_DEFAULTS, **(policy_kwargs or {})}
     pk["activation_fn"] = torch.nn.Tanh
     model = PPO("MlpPolicy", venv, seed=seed, policy_kwargs=pk, verbose=0, device="cpu", **kw)
+    if u_log_std_init is not None:
+        with torch.no_grad():
+            model.policy.log_std[-1] = float(u_log_std_init)
     t0 = time.time()
     model.learn(total_timesteps=total_steps)
     log(f"trained {task.name}/{reward}/seed{seed}: {total_steps:,} steps in {time.time() - t0:.0f}s")
