@@ -174,7 +174,8 @@ class Registry:
         v = self.versions(agent_id)
         return (v[-1]["version"] + 1) if v else 1
 
-    def start_training(self, agent_id: str, version: int, parent: int | None, changes: dict) -> None:
+    def start_training(self, agent_id: str, version: int, parent: int | None, changes: dict,
+                       info: dict | None = None) -> None:
         check_changes(changes)
         if version != self.next_version(agent_id):
             raise LifecycleError(f"{agent_id}: next version is {self.next_version(agent_id)}, not {version}")
@@ -184,7 +185,7 @@ class Registry:
             raise LifecycleError(f"{agent_id} is already training")
         if self.state(agent_id)["status"] == "retired":
             raise LifecycleError(f"{agent_id} is retired")
-        self.event(agent_id, "training_started", version=version, parent=parent, changes=changes)
+        self.event(agent_id, "training_started", version=version, parent=parent, changes=changes, info=info or {})
 
     def record_version(self, agent_id: str, record: dict) -> dict:
         """Write version `record['version']` once. Verifies the frozen rules did not change."""
