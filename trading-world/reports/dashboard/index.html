@@ -1,0 +1,392 @@
+<meta name="dash-one-writer">
+<style>
+  /* Layout: summary tiles, then one agent's replay (price / position / equity share a time axis),
+     then the table of every agent, the practice-market key and the data download grid. */
+  .tw { display: flex; flex-direction: column; gap: var(--cds-gap-xl); color: var(--color-fg); font-family: var(--font-anthropic-sans); }
+  .tw h1 { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); margin: 0; text-wrap: balance; }
+  .tw h2 { font-size: var(--cds-font-size-heading); font-weight: var(--cds-font-weight-medium); margin: 0; text-wrap: balance; }
+  .tw p { margin: 0; max-width: 68ch; line-height: 1.5; }
+  .tw-muted { color: var(--color-fg-muted); }
+  .tw-small { font-size: var(--cds-font-size-caption); }
+  .tw-head { display: flex; flex-direction: column; gap: var(--cds-gap-sm); }
+  .tw-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--cds-gap-md); }
+  .tw-card { background: var(--color-panel); border: 1px solid var(--color-border-line); border-radius: var(--cds-radius); padding: var(--cds-pad-lg); display: flex; flex-direction: column; gap: var(--cds-gap-sm); min-width: 0; }
+  .tw-tile-label { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .tw-big { font-family: var(--font-anthropic-serif); font-weight: 400; font-size: var(--cds-font-size-title); font-variant-numeric: tabular-nums; line-height: 1.1; }
+  .tw-big small { font-family: var(--font-anthropic-sans); font-size: var(--cds-font-size-body); color: var(--color-fg-muted); }
+  .tw-section { display: flex; flex-direction: column; gap: var(--cds-gap-md); }
+  .tw-row { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); align-items: center; }
+  .tw-pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; font-size: var(--cds-font-size-caption); font-weight: var(--cds-font-weight-medium); border: 1px solid var(--color-border-line); white-space: nowrap; }
+  .tw-pill::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .tw-pass { color: var(--color-ok); }
+  .tw-fail { color: var(--color-bad); }
+  .tw-pending { color: var(--color-fg-muted); }
+  .tw-chart { position: relative; width: 100%; min-height: 420px; }
+  .tw-chart svg { display: block; width: 100%; height: auto; overflow: visible; }
+  .tw-chart text { fill: var(--cds-text-secondary); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); }
+  .tw-chart .tw-panel-title { fill: var(--color-fg); font-weight: var(--cds-font-weight-medium); }
+  .tw-chart .domain, .tw-chart .tick line { stroke: var(--cds-chart-axis); }
+  .tw-chart .tw-grid line { stroke: var(--cds-chart-grid); }
+  .tw-chart .tw-grid .domain { display: none; }
+  .tw-tip { position: absolute; pointer-events: none; background: var(--cds-surface-popover); border: 1px solid var(--cds-border); box-shadow: var(--cds-shadow-popover); border-radius: var(--cds-radius); padding: 8px 10px; font-size: var(--cds-font-size-caption); color: var(--color-fg); font-variant-numeric: tabular-nums; white-space: nowrap; z-index: 2; }
+  .tw-tip b { font-weight: var(--cds-font-weight-medium); }
+  .tw-table-wrap { overflow-x: auto; }
+  .tw-table { border-collapse: collapse; width: 100%; font-size: var(--cds-font-size-caption); font-variant-numeric: tabular-nums; }
+  .tw-table th, .tw-table td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--color-border-line); white-space: nowrap; }
+  .tw-table th { color: var(--color-fg-muted); font-weight: var(--cds-font-weight-medium); }
+  .tw-table td.tw-num, .tw-table th.tw-num { text-align: right; }
+  .tw-table tr.tw-clickable { cursor: pointer; }
+  .tw-table tr.tw-clickable:hover td, .tw-table tr.tw-selected td { background: color-mix(in srgb, var(--color-fg) 6%, transparent); }
+  .tw-key { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: var(--cds-gap-md); }
+  .tw-key h3 { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0; }
+  .tw-key p { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .tw-legend { display: flex; flex-wrap: wrap; gap: var(--cds-gap-md); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .tw-swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -2px; margin-right: 6px; }
+  .tw-grid-chart { position: relative; width: 100%; min-height: 190px; }
+  .tw-grid-chart svg { display: block; width: 100%; height: auto; }
+  .tw-grid-chart text { fill: var(--cds-text-secondary); font-size: var(--cds-font-size-caption); font-family: var(--font-anthropic-sans); }
+  .tw details summary { cursor: pointer; font-weight: var(--cds-font-weight-medium); }
+  .tw details p { margin-top: var(--cds-gap-sm); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .tw button.tw-link { all: unset; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+  .tw button.tw-link:focus-visible, .tw select:focus-visible, .tw tr:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+</style>
+
+<div class="tw">
+  <header class="tw-head" id="overview">
+    <h1>Trading World: agent monitor</h1>
+    <p>Phase 2 checks whether our agents can learn at all. Each agent practises on a made-up market with a known right answer, then is tested on a fresh stretch of that market it has never seen.
+      So far <b data-draw="trained" data-source="gate_summary" data-field="trained" data-row="0">—</b> of <b data-draw="total" data-source="gate_summary" data-field="total" data-row="0">—</b> agents have finished training, and <b data-draw="passing" data-source="gate_summary" data-field="passing" data-row="0">—</b> of those passed their test.</p>
+    <p class="tw-muted tw-small">No real money and no real broker: every trade here is simulated.</p>
+  </header>
+
+  <div class="tw-tiles" id="tiles">
+    <div class="tw-card">
+      <span class="tw-tile-label">Agents trained</span>
+      <span class="tw-big"><span data-draw="trained" data-source="gate_summary" data-field="trained" data-row="0">—</span> <small>of <span data-draw="total" data-source="gate_summary" data-field="total" data-row="0">—</span></small></span>
+    </div>
+    <div class="tw-card">
+      <span class="tw-tile-label">Passed their test</span>
+      <span class="tw-big tw-pass"><span data-draw="passing" data-source="gate_summary" data-field="passing" data-row="0">—</span></span>
+    </div>
+    <div class="tw-card">
+      <span class="tw-tile-label">Failed their test</span>
+      <span class="tw-big tw-fail"><span data-draw="failing" data-source="gate_summary" data-field="failing" data-row="0">—</span></span>
+    </div>
+    <div class="tw-card">
+      <span class="tw-tile-label">Real market data downloaded (2022–2023)</span>
+      <span class="tw-big"><span data-draw="dl-done" data-source="download_summary" data-field="done" data-row="0">—</span> <small>of <span data-draw="dl-total" data-source="download_summary" data-field="total" data-row="0">—</span> instrument-months</small></span>
+    </div>
+  </div>
+
+  <section class="tw-section" id="watch">
+    <h2>Watch an agent trade</h2>
+    <p class="tw-muted">Pick an agent to replay one of its test runs, 1,000 decisions on market data it never saw in training. Top: the market. Middle: the position it chose (above zero = betting the price rises, below = betting it falls; 2 means a position worth twice the account). Bottom: its account, which starts at $10.</p>
+    <div class="tw-row">
+      <label for="tw-agent-select" class="tw-small tw-muted">Agent</label>
+      <select id="tw-agent-select" class="dash-select" data-draw="agent-select" aria-label="Agent to replay" data-source="agents"></select>
+      <span class="tw-pill" data-draw="sel-result" data-source="agents" data-field="result">—</span>
+    </div>
+    <p class="tw-small"><span data-draw="sel-task" data-source="agents" data-field="task_name">—</span> · scored on <span data-draw="sel-reward" data-source="agents" data-field="reward_name">—</span> · <span data-draw="sel-why" data-source="agents" data-field="why">—</span></p>
+    <div class="tw-card">
+      <div class="tw-chart" data-draw="replay" data-source="replay agents" role="img" aria-label="Replay of the selected agent: market price, its position and its account equity over 1,000 decisions"></div>
+      <div class="tw-legend" id="replay-legend">
+        <span><span class="tw-swatch" style="background: var(--cds-chart-muted); opacity: .35"></span>Shaded: the market announced an up-trend (trend-switch market only)</span>
+        <span><span class="tw-swatch" style="background: var(--cds-chart-status-critical)"></span>Account hit the 5% floor (agent died)</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="tw-section" id="all-agents">
+    <h2>Every agent</h2>
+    <p class="tw-muted">Three agents per test, each started from a different random seed, so one lucky run can't pass a test. Click a row to replay it. Growth and deaths are averages over 20 test runs.</p>
+    <div class="tw-table-wrap">
+      <table class="tw-table" data-source="agents" data-row-key="agent">
+        <thead>
+          <tr>
+            <th data-field="task_name">Practice market</th>
+            <th data-field="reward_name">Scored on</th>
+            <th data-field="seed" class="tw-num">Seed</th>
+            <th data-field="result">Result</th>
+            <th data-field="growth_pct" class="tw-num">Growth per test run</th>
+            <th data-field="deaths_pct" class="tw-num">Deaths</th>
+            <th data-field="avg_leverage" class="tw-num">Avg. position size</th>
+            <th data-field="why">Why</th>
+          </tr>
+        </thead>
+        <tbody data-draw="agent-rows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="tw-section" id="markets">
+    <h2>The practice markets and what a good agent should do</h2>
+    <div class="tw-key">
+      <div class="tw-card"><h3>Hidden pattern, with trading costs</h3><p>Prices tend to bounce back after each move. A learning agent should spot this and profit after costs, beating random traders that trade as often and as large.</p></div>
+      <div class="tw-card"><h3>Trend switches it is told about</h3><p>The market drifts up or down and announces which. The agent should follow the announcement: long in up-trends, short in down-trends.</p></div>
+      <div class="tw-card"><h3>Pure noise, with trading costs</h3><p>Nothing to learn and every trade costs money. The right answer is to stop trading.</p></div>
+      <div class="tw-card"><h3>Pure noise, free trading</h3><p>Nothing to learn. The agent must not appear to make money: if it did, something would be broken.</p></div>
+      <div class="tw-card"><h3>Leak trap</h3><p>Tomorrow's price is hidden in the data where agents must never see it. Any profit would mean the future is leaking in.</p></div>
+      <div class="tw-card"><h3>Steady gains with sudden crashes</h3><p>Small gains most of the time, rare 10% crashes. The growth-scored agent should use moderate size (about 3x) and survive. The reckless comparison agent should over-bet and die.</p></div>
+      <div class="tw-card"><h3>Known best leverage (5x)</h3><p>A market whose mathematically best position size is exactly 5x. The growth-scored agent should find its way near 5x; the reckless one should not.</p></div>
+    </div>
+  </section>
+
+  <section class="tw-section" id="data">
+    <h2>Real market data download</h2>
+    <p class="tw-muted">Minute-by-minute prices with real buy and sell quotes, downloaded slowly from Dukascopy because it limits how fast we may fetch. Real-data training starts once this is filled in.</p>
+    <div class="tw-card">
+      <div class="tw-grid-chart" data-draw="download-grid" data-source="downloads" role="img" aria-label="Download status of each instrument for each month of 2022 and 2023"></div>
+      <div class="tw-legend">
+        <span><span class="tw-swatch" data-draw="swatch-done"></span>Downloaded</span>
+        <span><span class="tw-swatch" style="border: 1px solid var(--cds-chart-axis)"></span>Not yet</span>
+      </div>
+    </div>
+  </section>
+
+  <details id="how-to-read">
+    <summary>How to read this page</summary>
+    <p>Growth per test run is the average change in the account over a 1,000-decision test run (for example +10% means $10 became $11). Deaths is the share of test runs in which the account fell to the 5% floor ($0.50), which ends that agent's run. Average position size is the position's value divided by the account, averaged while the agent is alive (1 means a position the size of the account). Pass and fail use criteria written down before any results came in.</p>
+    <p>Scoring rules: "Long-term growth" rewards steady compounding, so it punishes big bets that risk ruin. "Reckless (comparison)" rewards raw profit regardless of risk; it exists to show what happens without that discipline.</p>
+  </details>
+</div>
+
+<script>
+  dash.calc('gate_summary', {
+    title: 'Agent counts',
+    description: 'How many planned agents have finished training, and how many of those passed or failed.',
+    inputs: ['agents'],
+    fn: (agents) => [{
+      total: agents.length,
+      trained: agents.filter((a) => a.status === 'trained').length,
+      passing: agents.filter((a) => a.result === 'pass').length,
+      failing: agents.filter((a) => a.result === 'fail').length,
+    }],
+  });
+  dash.calc('download_summary', {
+    title: 'Download progress',
+    description: 'Instrument-months of 2022-2023 market data downloaded so far.',
+    inputs: ['downloads'],
+    fn: (downloads) => [{
+      total: downloads.length,
+      done: downloads.filter((d) => d.downloaded === 'yes').length,
+    }],
+  });
+
+  window.twState = window.twState || { agent: null };
+
+  function twCount(field) {
+    return (el) => {
+      const s = dash.data(el.dataset.source);
+      el.textContent = s.status === 'ok' && s.data.length ? d3.format(',')(s.data[0][field]) : '—';
+    };
+  }
+  dash.draw('trained', twCount('trained'));
+  dash.draw('total', twCount('total'));
+  dash.draw('passing', twCount('passing'));
+  dash.draw('failing', twCount('failing'));
+  dash.draw('dl-done', twCount('done'));
+  dash.draw('dl-total', twCount('total'));
+  dash.draw('swatch-done', (el) => { el.style.background = dash.colors[0]; });
+
+  window.twTrained = function () {
+    const a = dash.data('agents');
+    return a.status === 'ok' ? a.data.filter((r) => r.status === 'trained') : [];
+  };
+  window.twSelected = function () {
+    const t = window.twTrained();
+    if (!t.length) return null;
+    const keep = t.find((r) => r.agent === window.twState.agent);
+    if (keep) return keep;
+    const preferred = t.find((r) => r.task === 'S7' && r.reward === 'R1') || t.find((r) => r.result === 'pass') || t[0];
+    window.twState.agent = preferred.agent;
+    return preferred;
+  };
+  window.twSelect = function (agent) {
+    window.twState.agent = agent;
+    ['agent-select', 'sel-result', 'sel-task', 'sel-reward', 'sel-why', 'replay', 'agent-rows'].forEach((n) => dash.draw(n));
+  };
+  window.twLabel = function (r) {
+    return `${r.task_name} · ${r.reward_name} · seed ${r.seed}`;
+  };
+  window.twResultText = { pass: 'Passed', fail: 'Failed', pending: 'Training' };
+
+  dash.draw('agent-select', (sel) => {
+    const t = window.twTrained();
+    const cur = window.twSelected();
+    sel.replaceChildren(...(t.length ? t.map((r) => new Option(window.twLabel(r), r.agent)) : [new Option('No agent has finished training yet', '')]));
+    sel.disabled = !t.length;
+    if (cur) sel.value = cur.agent;
+    sel.onchange = () => window.twSelect(sel.value);
+  });
+
+  function twSelField(field, fmt) {
+    return (el) => {
+      const cur = window.twSelected();
+      if (!cur) { el.textContent = '—'; el.removeAttribute('data-where'); return; }
+      el.setAttribute('data-where', 'agent=' + encodeURIComponent(cur.agent));
+      el.textContent = fmt ? fmt(cur[field], el) : (cur[field] ?? '—');
+    };
+  }
+  dash.draw('sel-task', twSelField('task_name'));
+  dash.draw('sel-reward', twSelField('reward_name'));
+  dash.draw('sel-why', twSelField('why', (v) => v || 'test not finished'));
+  dash.draw('sel-result', twSelField('result', (v, el) => {
+    el.classList.remove('tw-pass', 'tw-fail', 'tw-pending');
+    el.classList.add('tw-' + (v || 'pending'));
+    return window.twResultText[v] || '—';
+  }));
+
+  dash.draw('agent-rows', (tb) => {
+    const a = dash.data('agents');
+    if (a.status !== 'ok') { tb.replaceChildren(); return; }
+    const pct = (v) => v == null || v === '' ? '—' : d3.format('+.1f')(+v) + '%';
+    const lev = (v) => v == null || v === '' ? '—' : d3.format('.2f')(+v) + 'x';
+    const rows = d3.select(tb).selectAll('tr').data(a.data, (r) => r.agent).join('tr');
+    rows.attr('data-key', (r) => encodeURIComponent(r.agent))
+      .attr('class', (r) => (r.status === 'trained' ? 'tw-clickable' : '') + (r.agent === window.twState.agent ? ' tw-selected' : ''))
+      .attr('tabindex', (r) => r.status === 'trained' ? 0 : null)
+      .on('click', (e, r) => { if (r.status === 'trained') window.twSelect(r.agent); })
+      .on('keydown', (e, r) => { if ((e.key === 'Enter' || e.key === ' ') && r.status === 'trained') { e.preventDefault(); window.twSelect(r.agent); } });
+    rows.selectAll('td').data((r) => [
+      { t: r.task_name }, { t: r.reward_name }, { t: r.seed, num: true },
+      { t: window.twResultText[r.result] || r.result, pill: r.result },
+      { t: pct(r.growth_pct), num: true }, { t: r.deaths_pct == null ? '—' : d3.format('.0f')(+r.deaths_pct) + '%', num: true },
+      { t: lev(r.avg_leverage), num: true }, { t: r.why || '' },
+    ]).join('td')
+      .attr('class', (c) => c.num ? 'tw-num' : null)
+      .each(function (c) {
+        const td = d3.select(this);
+        td.selectAll('*').remove();
+        if (c.pill) td.text('').append('span').attr('class', 'tw-pill tw-' + c.pill).text(c.t);
+        else td.text(c.t);
+      });
+  });
+
+  dash.draw('replay', (el) => {
+    const rp = dash.data('replay');
+    const cur = window.twSelected();
+    el.replaceChildren();
+    if (rp.status === 'error') { el.textContent = 'Failed to load'; return; }
+    if (rp.status !== 'ok' || !cur) { el.textContent = '—'; return; }
+    const rows = rp.data.filter((r) => r.agent === cur.agent).map((r) => ({
+      step: +r.step, price: +r.price, net: +r.net_exposure, equity: +r.equity, regime: r.regime === '' ? null : +r.regime,
+    }));
+    if (!rows.length) { el.textContent = 'No replay recorded for this agent yet.'; return; }
+    const W = Math.max(300, el.clientWidth || 600);
+    const m = { l: 52, r: 16, t: 22, b: 26 };
+    const ph = 120, gap = 34;
+    const H = m.t + 3 * ph + 2 * gap + m.b;
+    const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('width', '100%')
+      .attr('role', 'img').attr('aria-label', `Replay of ${window.twLabel(cur)}`);
+    const x = d3.scaleLinear().domain(d3.extent(rows, (r) => r.step)).range([m.l, W - m.r]);
+    const panels = [
+      { key: 'price', title: 'Market price (start = 100)', fmt: d3.format('.2f') },
+      { key: 'net', title: 'Position (x account; above 0 = long, below = short)', fmt: d3.format('+.2f'), zero: true },
+      { key: 'equity', title: 'Account ($)', fmt: (v) => '$' + d3.format(',.2f')(v) },
+    ];
+    const color = dash.colors[0];
+    const died = rows.find((r, i) => i > 0 && r.equity <= 0.5 + 1e-9);
+    panels.forEach((p, i) => {
+      const top = m.t + i * (ph + gap);
+      let ext = d3.extent(rows, (r) => r[p.key]);
+      if (p.zero) ext = [Math.min(0, ext[0]), Math.max(0, ext[1])];
+      if (p.key === 'equity') ext = [Math.min(ext[0], 10), Math.max(ext[1], 10)];
+      if (ext[0] === ext[1]) ext = [ext[0] - 1, ext[1] + 1];
+      const y = d3.scaleLinear().domain(ext).nice(4).range([top + ph, top]);
+      p.y = y;
+      const g = svg.append('g');
+      if (p.key === 'price' && rows.some((r) => r.regime != null)) {
+        let start = null;
+        rows.forEach((r, k) => {
+          const up = r.regime === 1;
+          if (up && start === null) start = r.step;
+          if ((!up || k === rows.length - 1) && start !== null) {
+            const end = up ? r.step : rows[k - 1].step;
+            g.append('rect').attr('x', x(start)).attr('width', Math.max(1, x(end) - x(start))).attr('y', top).attr('height', ph)
+              .style('fill', 'var(--cds-chart-muted)').style('opacity', 0.35);
+            start = null;
+          }
+        });
+      }
+      g.append('g').attr('class', 'tw-grid').attr('transform', `translate(${m.l},0)`)
+        .call(d3.axisLeft(y).ticks(4).tickSize(-(W - m.l - m.r)).tickFormat(''));
+      g.append('g').attr('transform', `translate(${m.l},0)`).call(d3.axisLeft(y).ticks(4).tickFormat(p.fmt));
+      if (p.zero) g.append('line').attr('x1', m.l).attr('x2', W - m.r).attr('y1', y(0)).attr('y2', y(0)).style('stroke', 'var(--cds-chart-reference)');
+      if (p.key === 'equity') {
+        g.append('path').datum(rows).attr('d', d3.area().x((r) => x(r.step)).y0(y(ext[0])).y1((r) => y(r.equity)))
+          .style('fill', color).style('opacity', 0.12);
+      }
+      if (p.key === 'net') {
+        g.append('path').datum(rows).attr('d', d3.area().x((r) => x(r.step)).y0(y(0)).y1((r) => y(r.net)).curve(d3.curveStepAfter))
+          .style('fill', color).style('opacity', 0.18);
+      }
+      g.append('path').datum(rows).attr('d', d3.line().x((r) => x(r.step)).y((r) => y(r[p.key])).curve(p.key === 'net' ? d3.curveStepAfter : d3.curveLinear))
+        .style('fill', 'none').style('stroke', color).style('stroke-width', 2).style('stroke-linejoin', 'round');
+      const last = rows[rows.length - 1];
+      g.append('circle').attr('cx', x(last.step)).attr('cy', y(last[p.key])).attr('r', 4).style('fill', color)
+        .style('stroke', 'var(--color-panel)').style('stroke-width', 2);
+      g.append('text').attr('class', 'tw-panel-title').attr('x', m.l).attr('y', top - 8).text(p.title);
+      if (died && p.key === 'equity') {
+        g.append('line').attr('x1', x(died.step)).attr('x2', x(died.step)).attr('y1', top).attr('y2', top + ph)
+          .style('stroke', 'var(--cds-chart-status-critical)').style('stroke-width', 2);
+      }
+    });
+    const xa = svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).ticks(Math.max(2, Math.floor(W / 120))).tickFormat(d3.format(',')));
+    svg.append('text').attr('x', W - m.r).attr('y', H - 2).attr('text-anchor', 'end').text('decision number');
+    const tip = d3.select(el).append('div').attr('class', 'tw-tip').style('display', 'none');
+    const cross = svg.append('line').attr('y1', m.t).attr('y2', H - m.b).style('stroke', 'var(--cds-chart-reference)').style('display', 'none');
+    const dots = panels.map(() => svg.append('circle').attr('r', 4).style('fill', color).style('stroke', 'var(--color-panel)').style('stroke-width', 2).style('display', 'none'));
+    const bis = d3.bisector((r) => r.step).center;
+    const show = (px) => {
+      const r = rows[Math.max(0, Math.min(rows.length - 1, bis(rows, x.invert(px))))];
+      cross.attr('x1', x(r.step)).attr('x2', x(r.step)).style('display', null);
+      panels.forEach((p, i) => dots[i].attr('cx', x(r.step)).attr('cy', p.y(r[p.key])).style('display', null));
+      tip.style('display', null).html('');
+      tip.append('div').append('b').text(`Decision ${d3.format(',')(r.step)}`);
+      tip.append('div').text(`Price ${d3.format('.2f')(r.price)}`);
+      tip.append('div').text(`Position ${d3.format('+.2f')(r.net)}x ${r.net > 0.005 ? '(long)' : r.net < -0.005 ? '(short)' : '(flat)'}`);
+      tip.append('div').text(`Account $${d3.format(',.2f')(r.equity)}`);
+      if (r.regime != null) tip.append('div').text(`Announced trend: ${r.regime > 0 ? 'up' : 'down'}`);
+      const box = el.getBoundingClientRect();
+      const left = (x(r.step) / W) * box.width;
+      tip.style('left', `${Math.min(left + 12, box.width - 170)}px`).style('top', '8px');
+    };
+    svg.append('rect').attr('x', m.l).attr('y', m.t).attr('width', W - m.l - m.r).attr('height', H - m.t - m.b)
+      .style('fill', 'transparent')
+      .on('pointermove', (e) => { const [px] = d3.pointer(e); show(px); })
+      .on('pointerleave', () => { tip.style('display', 'none'); cross.style('display', 'none'); dots.forEach((d) => d.style('display', 'none')); });
+  });
+
+  dash.draw('download-grid', (el) => {
+    const s = dash.data('downloads');
+    el.replaceChildren();
+    if (s.status === 'error') { el.textContent = 'Failed to load'; return; }
+    if (s.status !== 'ok') { el.textContent = '—'; return; }
+    const inst = [...new Set(s.data.map((r) => r.instrument))];
+    const months = [...new Set(s.data.map((r) => r.month))].sort();
+    const W = Math.max(300, el.clientWidth || 600);
+    const m = { l: 64, r: 4, t: 18, b: 4 };
+    const cw = (W - m.l - m.r) / months.length, ch = 22;
+    const H = m.t + inst.length * ch + m.b;
+    const svg = d3.select(el).append('svg').attr('viewBox', `0 0 ${W} ${H}`).attr('width', '100%')
+      .attr('role', 'img').attr('aria-label', 'Download status of each instrument for each month of 2022 and 2023');
+    const tip = d3.select(el).append('div').attr('class', 'tw-tip').style('display', 'none');
+    inst.forEach((name, i) => svg.append('text').attr('x', m.l - 8).attr('y', m.t + i * ch + ch / 2 + 4).attr('text-anchor', 'end').text(name));
+    ['2022-01', '2023-01'].forEach((mo) => {
+      const k = months.indexOf(mo);
+      if (k >= 0) svg.append('text').attr('x', m.l + k * cw + 1).attr('y', m.t - 6).text(mo.slice(0, 4));
+    });
+    svg.selectAll('rect.cell').data(s.data).join('rect').attr('class', 'cell')
+      .attr('x', (r) => m.l + months.indexOf(r.month) * cw + 1).attr('y', (r) => m.t + inst.indexOf(r.instrument) * ch + 2)
+      .attr('width', Math.max(1, cw - 2)).attr('height', ch - 4).attr('rx', 3)
+      .style('fill', (r) => r.downloaded === 'yes' ? dash.colors[0] : 'transparent')
+      .style('stroke', (r) => r.downloaded === 'yes' ? 'none' : 'var(--cds-chart-axis)')
+      .on('pointerenter', (e, r) => {
+        tip.style('display', null).text(`${r.instrument} ${r.month}: ${r.downloaded === 'yes' ? 'downloaded' : 'not yet'}`);
+        const box = el.getBoundingClientRect();
+        const left = ((m.l + months.indexOf(r.month) * cw) / W) * box.width;
+        tip.style('left', `${Math.min(left, box.width - 170)}px`).style('top', `${((m.t + (inst.indexOf(r.instrument) + 1) * ch) / H) * box.height + 4}px`);
+      })
+      .on('pointerleave', () => tip.style('display', 'none'));
+  });
+</script>

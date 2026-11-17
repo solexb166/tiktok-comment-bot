@@ -122,3 +122,25 @@ def matched_random_policy(mapper: ActionMapper, gross: float, switch_prob: float
             state["d"] = float(rng.choice([-1.0, 1.0]))
         return np.array([state["d"], u])
     return _p
+
+
+def trace_episode(policy, task, start_decision, episode_decisions, reward="R1", mapper=None, seed=0):
+    """One fixed-start episode, recorded decision by decision for replay: the mid price the agent
+    saw, its net and gross exposure after acting, equity, and the regime flag where the task has one."""
+    env = TradeWorldEnv(task.md, task.profile, reward=reward, episode_decisions=episode_decisions,
+                        extra=task.extra, mapper=mapper, random_start=False, **task.env_kwargs)
+    o, info = env.reset(seed=seed, options={"start_decision": int(start_decision)})
+    mid = task.md.mid_c()[:, 0]
+    rows = []
+    done = False
+    while not done:
+        d = int(env.dec[env.k])
+        eq_before = info["equity"]
+        a = policy(o, env)
+        o, r, te, tr, info = env.step(a)
+        done = te or tr
+        rows.append(dict(step=env.k, price=float(mid[d]), net=float(info["net_leverage"]) if info["alive"] else 0.0,
+                         gross=float(info["gross_leverage"]) if info["alive"] else 0.0,
+                         equity=float(info["equity"]), equity_before=float(eq_before), alive=bool(info["alive"]),
+                         flag=None if task.extra is None else float(task.extra[d, 0])))
+    return rows
