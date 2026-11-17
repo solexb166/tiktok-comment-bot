@@ -1,7 +1,7 @@
 """Phase 2 gate: train PPO agents on synthetic markets S1-S7 and evaluate out of sample.
 
 Usage:
-    python scripts/phase2_synthetic.py --steps 1000000 --seeds 0,1,2 --workers 4
+    python scripts/phase2_synthetic.py --seeds 0,1,2 --workers 4        (resumable: finished jobs are skipped)
     python scripts/phase2_synthetic.py --jobs S7:R1,S7:R2 --steps 300000 --seeds 0
 Each job writes runs/phase2/<task>_<reward>_s<seed>.json (+ model .zip); then run
 scripts/phase2_report.py to produce reports/phase2_synthetic.md.
@@ -27,6 +27,9 @@ EPISODE = 1000
 TEST_EPISODES = 20
 NULL_AGENTS = 10
 TEST_SEED_OFFSET = 10_000
+# Training budget per task: the leverage tasks need longer (S7 leverage was still rising at 1M).
+STEPS = {"S6": 3_000_000, "S7": 3_000_000}
+DEFAULT_STEPS = 1_000_000
 
 
 def git_commit() -> str:
@@ -95,16 +98,24 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--jobs", default=",".join(DEFAULT_JOBS))
     ap.add_argument("--seeds", default="0,1,2")
-    ap.add_argument("--steps", type=int, default=1_000_000)
+    ap.add_argument("--steps", type=int, default=None, help="override every job's step budget")
     ap.add_argument("--workers", type=int, default=4)
     ap.add_argument("--out", default=str(ROOT / "runs" / "phase2"))
     ap.add_argument("--overrides", default="{}", help='JSON, e.g. {"policy": {"log_std_init": -1.0}}')
     a = ap.parse_args()
     Path(a.out).mkdir(parents=True, exist_ok=True)
     overrides = json.loads(a.overrides)
-    jobs = [(j.split(":")[0], j.split(":")[1], int(s), a.steps, a.out, overrides)
-            for j in a.jobs.split(",") for s in a.seeds.split(",")]
-    print(f"{len(jobs)} jobs, {a.workers} workers, {a.steps:,} steps each", flush=True)
+    jobs = []
+    for j in a.jobs.split(","):
+        task, reward = j.split(":")
+        steps = a.steps or STEPS.get(task, DEFAULT_STEPS)
+        for s in a.seeds.split(","):
+            if (Path(a.out) / f"{task}_{reward}_s{int(s)}.json").exists():
+                print(f"skip {task}:{reward} seed {s} (already done)", flush=True)
+                continue
+            jobs.append((task, reward, int(s), steps, a.out, overrides))
+    jobs.sort(key=lambda x: -x[3])                    # longest first
+    print(f"{len(jobs)} jobs, {a.workers} workers, {sum(x[3] for x in jobs):,} steps total", flush=True)
     with mp.get_context("fork").Pool(a.workers) as pool:
         for path in pool.imap_unordered(run_job, jobs):
             print("wrote", path, flush=True)
