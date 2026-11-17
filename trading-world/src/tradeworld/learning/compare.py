@@ -25,7 +25,7 @@ def eval_row(reg: Registry, e: dict) -> dict:
                time_in_market=m.get("time_in_market"), aligned_with_edge=m.get("aligned_with_edge"),
                legacy=bool(e.get("legacy")),
                diagnosis=",".join(o["code"] for o in (e.get("diagnosis") or {}).get("observations", [])))
-    if e.get("decision_log_sha256"):
+    if e.get("decision_log_fingerprint"):
         log = decision_log(reg, e)
         dd = []
         for _, g in log.groupby("episode"):

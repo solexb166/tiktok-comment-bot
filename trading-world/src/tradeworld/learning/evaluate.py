@@ -193,17 +193,65 @@ def evaluate(reg: Registry, agent_id: str, version: int, round_id: str, *, check
         ok, why = verdict(ident["task"], ident["reward"], s, reference)
         result = "pass" if ok else "fail"
     log = pd.DataFrame(rows)
+    stored = store_decision_log(reg, log, stats)
     rec = dict(
         version=version, round_id=round_id, checkpoint_sha256=sha, criteria=criteria,
+        test_steps=rnd.get("test_steps", TEST_STEPS_DATA),
         test_data=dict(task=ident["task"], seed=seed, data_hash=task.md.content_hash(),
                        episode_starts=[int(x) for x in starts], episode_reset_seeds=list(range(len(starts)))),
         episodes=stats, null=run.get("null"), summary=s, result=result, reason=why,
-        reference_summary=reference, decision_log_sha256=reg.blobs.put(frame_bytes(log), "parquet"),
-        decisions=len(log), diagnosis=diagnose(log, task, ident, s),
+        reference_summary=reference, **stored, diagnosis=diagnose(log, task, ident, s),
         **(extra_fields or {}),
     )
     return reg.record_evaluation(agent_id, rec)
 
 
+def log_fingerprint(log: pd.DataFrame) -> str:
+    """Stable content fingerprint of a decision log (independent of the file format)."""
+    cols = sorted(log.columns)
+    return hashlib.sha256(log[cols].to_csv(index=False, float_format="%.9g").encode()).hexdigest()
+
+
+def sample_episodes(log: pd.DataFrame, stats: list) -> list[int]:
+    """The worst test run and a typical (median-growth) one, kept permanently for replays."""
+    if not stats:
+        return []
+    g = np.array([s["log_growth"] for s in stats])
+    order = np.argsort(g)
+    return sorted({int(order[0]), int(order[len(order) // 2])})
+
+
+def store_decision_log(reg: Registry, log: pd.DataFrame, stats: list) -> dict:
+    """Full log -> regenerable cache; fingerprint + two sample episodes -> permanent store."""
+    eps = sample_episodes(log, stats)
+    samples = log[log["episode"].isin(eps)].copy()
+    for c in samples.columns:
+        if samples[c].dtype == np.float64:
+            samples[c] = samples[c].astype(np.float32)
+    return dict(decisions=len(log), decision_log_fingerprint=log_fingerprint(log),
+                decision_log_cache_sha256=reg.cache.put(frame_bytes(log), "parquet"),
+                sample_episodes=eps, decision_samples_sha256=reg.blobs.put(frame_bytes(samples), "parquet"))
+
+
+def decision_samples(reg: Registry, evaluation: dict) -> pd.DataFrame:
+    return pd.read_parquet(io.BytesIO(reg.blobs.get(evaluation["decision_samples_sha256"])))
+
+
 def decision_log(reg: Registry, evaluation: dict) -> pd.DataFrame:
-    return pd.read_parquet(io.BytesIO(reg.blobs.get(evaluation["decision_log_sha256"])))
+    """The full decision log: from the cache, or regenerated from the evaluated checkpoint and
+    the recorded test data, and accepted only if it matches the stored fingerprint."""
+    sha = evaluation.get("decision_log_cache_sha256")
+    if sha and reg.cache.exists(sha):
+        return pd.read_parquet(io.BytesIO(reg.cache.get(sha)))
+    ident = reg.identity(evaluation["agent_id"])
+    td = evaluation["test_data"]
+    task = st.build(td["task"], td["seed"], evaluation.get("test_steps", TEST_STEPS_DATA))
+    if task.md.content_hash() != td["data_hash"]:
+        raise RegistryError("test data no longer regenerates identically; cannot rebuild the decision log")
+    model = load_model(reg, evaluation["checkpoint_sha256"])
+    rows, _ = run_recorded(model_policy(model), ident, task, td["episode_starts"])
+    log = pd.DataFrame(rows)
+    if log_fingerprint(log) != evaluation["decision_log_fingerprint"]:
+        raise RegistryError("regenerated decision log does not match its fingerprint")
+    reg.cache.put(frame_bytes(log), "parquet")
+    return log

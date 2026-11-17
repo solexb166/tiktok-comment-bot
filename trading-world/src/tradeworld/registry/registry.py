@@ -75,7 +75,8 @@ def check_changes(changes: dict) -> None:
 class Registry:
     def __init__(self, root: Path | str = DEFAULT_REGISTRY):
         self.root = Path(root)
-        self.blobs = LocalBlobStore(self.root / "blobs")
+        self.blobs = LocalBlobStore(self.root / "blobs")          # permanent (git-tracked for now)
+        self.cache = LocalBlobStore(self.root / "cache")          # regenerable, not tracked
 
     # ------------------------------------------------------------------ paths
     def _agent_dir(self, agent_id: str) -> Path:

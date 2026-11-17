@@ -139,6 +139,10 @@ def test_evaluation_is_immutable_uses_fresh_data_and_pins_criteria(small_registr
     assert e["test_data"]["seed"] >= 20_000 and e["criteria"]["criteria_id"] == ev.CRITERIA_ID
     log = ev.decision_log(reg, e)
     assert len(log) == 600 and {"reward", "equity_before", "equity_after", "position_change"} <= set(log.columns)
+    assert len(ev.decision_samples(reg, e)) in (200, 400)                      # permanent sample episodes
+    import shutil
+    shutil.rmtree(reg.root / "cache")                                           # lose the cache:
+    assert ev.log_fingerprint(ev.decision_log(reg, e)) == e["decision_log_fingerprint"]   # regenerated exactly
     with pytest.raises(WriteOnceError):
         ev.evaluate(reg, a, 1, r1["round_id"])
     r2 = ev.create_round(reg, ["S3"])
