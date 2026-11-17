@@ -218,7 +218,7 @@ class Experiment:
         jobs = self.stage_jobs(k)
         log(f"stage {k}: {len(jobs)} training jobs")
         ctx = mp.get_context("fork")
-        with ctx.Pool(workers, maxtasksperchild=1) as pool:
+        with ctx.Pool(workers) as pool:          # workers reused: no forks after threads start
             for job, rec in pool.imap_unordered(_train_job, [(str(self.reg.root), j) for j in jobs]):
                 self._log("trained", agent_key=job["key"], label=job["label"], version=rec["version"],
                           parent_version=job["parent"], stage=k)
@@ -262,7 +262,7 @@ class Experiment:
                                  round_id=rid, reference=ref, round=n))
             log(f"round {n} ({rid}): {len(todo)} {reward} evaluations")
             ctx = mp.get_context("fork")
-            with ctx.Pool(workers, maxtasksperchild=4) as pool:
+            with ctx.Pool(workers) as pool:
                 for job, rec in pool.imap_unordered(_eval_job, [(str(self.reg.root), j) for j in todo]):
                     self._log("evaluated", agent_key=job["key"], label=job["label"], version=job["version"],
                               round=n, round_id=rid, eval_id=rec["eval_id"], result=rec["result"])
