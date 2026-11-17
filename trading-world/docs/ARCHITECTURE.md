@@ -311,6 +311,14 @@ There are no stop-losses, take-profits, sizing rules or leverage caps in the pri
 Remaining inductive biases (feature transforms, architecture, window, decision interval, action
 parametrization, initialization, reward, learner) are documented and ablated.
 
+**Open trading principle (decision 0005, 2026-11-17).** No agent is given a trading style or
+strategy: no scalping, swing trading, set entries, sessions, trade counts, holding periods,
+indicators or mandatory entry/exit patterns. Agents discover when to trade, which direction, how
+long to hold, how often and how large, and may develop different trading personalities. Any
+mechanism that indirectly forces a style is a defect to be documented and proposed for removal.
+The audit and its open proposals (exploration churn, episode length, learning horizon,
+observation horizon, order types, explicit flat choice) are in `docs/decisions/0005-open-trading-principle.md`.
+
 ---
 
 ## 7. Broker specification: Exness (environment B)
