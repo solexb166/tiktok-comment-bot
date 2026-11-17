@@ -50,6 +50,21 @@
   .tw details p { margin-top: var(--cds-gap-sm); font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
   .tw button.tw-link { all: unset; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
   .tw button.tw-link:focus-visible, .tw select:focus-visible, .tw tr:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+  .tw-id { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: var(--cds-gap-md); }
+  .tw-id div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .tw-id span:first-child { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .tw-id span:last-child { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .tw-diag { display: flex; flex-direction: column; gap: var(--cds-gap-sm); margin: 0; padding: 0; list-style: none; }
+  .tw-diag li { display: flex; gap: var(--cds-gap-md); align-items: baseline; font-size: var(--cds-font-size-caption); line-height: 1.5; }
+  .tw-diag .tw-kind { flex: 0 0 auto; padding: 1px 8px; border-radius: 999px; border: 1px solid var(--color-border-line); color: var(--color-fg-muted); white-space: nowrap; }
+  .tw-diag .tw-kind-obs { color: var(--color-fg); }
+  .tw-detail { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--cds-gap-md); }
+  .tw-detail div { display: flex; flex-direction: column; gap: 2px; }
+  .tw-detail span:first-child { font-size: var(--cds-font-size-caption); color: var(--color-fg-muted); }
+  .tw-detail span:last-child { font-variant-numeric: tabular-nums; }
+  .tw-btn { font: inherit; font-size: var(--cds-font-size-caption); padding: 4px 12px; border-radius: var(--cds-radius); border: 1px solid var(--color-border-line); background: var(--color-panel); color: var(--color-fg); cursor: pointer; }
+  .tw-btn:focus-visible { outline: 2px solid var(--color-fg); outline-offset: 2px; }
+  .tw-sub { font-size: var(--cds-font-size-body); font-weight: var(--cds-font-weight-medium); margin: 0; }
 </style>
 
 <div class="tw">
@@ -129,6 +144,131 @@
       <div class="tw-card"><h3>Leak trap</h3><p>Tomorrow's price is hidden in the data where agents must never see it. Any profit would mean the future is leaking in.</p></div>
       <div class="tw-card"><h3>Steady gains with sudden crashes</h3><p>Small gains most of the time, rare 10% crashes. The growth-scored agent should use moderate size (about 3x) and survive. The reckless comparison agent should over-bet and die.</p></div>
       <div class="tw-card"><h3>Known best leverage (5x)</h3><p>A market whose mathematically best position size is exactly 5x. The growth-scored agent should find its way near 5x; the reckless one should not.</p></div>
+    </div>
+  </section>
+
+  <section class="tw-section" id="agent-history">
+    <h2>Agent history</h2>
+    <p class="tw-muted">Every agent keeps one permanent identity for its whole learning journey. Each training attempt becomes a new numbered version built on the one before, and every evaluation is stored for good: a failed result stays failed even after the agent improves.</p>
+    <div class="tw-row">
+      <label for="tw-hist-select" class="tw-small tw-muted">Agent</label>
+      <select id="tw-hist-select" class="dash-select" data-draw="hist-agent-select" aria-label="Agent to inspect" data-source="registry_agents"></select>
+      <span class="tw-pill" data-draw="hist-status" data-source="registry_agents" data-field="status">—</span>
+    </div>
+    <div class="tw-card" id="hist-identity">
+      <h3 class="tw-sub">Identity</h3>
+      <div class="tw-id">
+        <div><span>Permanent ID</span><span data-draw="hist-field" data-key="agent_id" data-source="registry_agents" data-field="agent_id">—</span></div>
+        <div><span>Practice market</span><span data-draw="hist-field" data-key="task_name" data-source="registry_agents" data-field="task_name">—</span></div>
+        <div><span>Scored on</span><span data-draw="hist-field" data-key="reward_name" data-source="registry_agents" data-field="reward_name">—</span></div>
+        <div><span>Original seed</span><span data-draw="hist-field" data-key="seed" data-source="registry_agents" data-field="seed">—</span></div>
+        <div><span>Created</span><span data-draw="hist-field" data-key="created_at" data-source="registry_agents" data-field="created_at">—</span></div>
+        <div><span>Current version</span><span data-draw="hist-field" data-key="current_version" data-source="registry_agents" data-field="current_version">—</span></div>
+        <div><span>Training attempts</span><span data-draw="hist-field" data-key="training_attempts" data-source="registry_agents" data-field="training_attempts">—</span></div>
+        <div><span>Evaluations (failed)</span><span><span data-draw="hist-field" data-key="evaluations" data-source="registry_agents" data-field="evaluations">—</span> (<span data-draw="hist-field" data-key="failed_evaluations" data-source="registry_agents" data-field="failed_evaluations">—</span>)</span></div>
+        <div><span>First passed on version</span><span data-draw="hist-field" data-key="passed_on_version" data-source="registry_agents" data-field="passed_on_version">—</span></div>
+        <div><span>Champion checkpoint</span><span data-draw="hist-field" data-key="champion_version" data-source="registry_agents" data-field="champion_version">—</span></div>
+      </div>
+    </div>
+
+    <h3 class="tw-sub" id="hist-versions">Versions</h3>
+    <div class="tw-table-wrap">
+      <table class="tw-table" data-source="registry_versions" data-row-key="agent_id,version">
+        <thead><tr>
+          <th data-field="version" class="tw-num">Version</th>
+          <th data-field="parent" class="tw-num">Built on</th>
+          <th data-field="kind">Kind</th>
+          <th data-field="steps_added" class="tw-num">Steps added</th>
+          <th data-field="total_steps" class="tw-num">Total steps</th>
+          <th data-field="changes">Setting changes</th>
+          <th data-field="checkpoints" class="tw-num">Checkpoints</th>
+          <th data-field="history">Training history</th>
+          <th data-field="reason">Why trained</th>
+        </tr></thead>
+        <tbody data-draw="hist-versions"></tbody>
+      </table>
+    </div>
+
+    <h3 class="tw-sub" id="hist-evals">Evaluations</h3>
+    <p class="tw-muted tw-small">Each round uses market data no agent has seen before. "First evaluation" rows are each version's original result and never change.</p>
+    <div class="tw-table-wrap">
+      <table class="tw-table" data-source="registry_evals" data-row-key="eval_id">
+        <thead><tr>
+          <th data-field="version" class="tw-num">Version</th>
+          <th data-field="round_id">Round</th>
+          <th data-field="original">Record</th>
+          <th data-field="result">Result</th>
+          <th data-field="growth_pct" class="tw-num">Growth per run</th>
+          <th data-field="deaths_pct" class="tw-num">Deaths</th>
+          <th data-field="avg_leverage" class="tw-num">Avg. size</th>
+          <th data-field="median_leverage" class="tw-num">Median size</th>
+          <th data-field="max_leverage" class="tw-num">Largest size</th>
+          <th data-field="share_over_fatal_pct" class="tw-num">Decisions at fatal size</th>
+          <th data-field="aligned_pct" class="tw-num">With the edge</th>
+          <th data-field="reason">Why</th>
+        </tr></thead>
+        <tbody data-draw="hist-evals"></tbody>
+      </table>
+    </div>
+
+    <div class="tw-card" id="hist-improvement">
+      <h3 class="tw-sub">Improvement across versions</h3>
+      <p class="tw-muted tw-small">Each version's first evaluation. Lines appear once an agent has more than one version.</p>
+      <div class="tw-chart" style="min-height: 260px" data-draw="hist-improvement-chart" data-source="registry_evals" role="img" aria-label="Growth and deaths of each version at its first evaluation"></div>
+    </div>
+
+    <div class="tw-card" id="hist-training">
+      <h3 class="tw-sub">Training history</h3>
+      <p class="tw-muted tw-small">Average result of training episodes as the agent learned, one line per version, on one continuous step count.</p>
+      <div class="tw-chart" style="min-height: 280px" data-draw="hist-training-chart" data-source="registry_training" role="img" aria-label="Training-episode growth and position size over training steps, per version"></div>
+    </div>
+
+    <div class="tw-card" id="hist-diagnosis">
+      <h3 class="tw-sub">Mistakes and failure diagnosis</h3>
+      <p class="tw-muted tw-small">"Observed" lines are counted from the agent's recorded decisions. "Possible explanation" lines are hypotheses, not confirmed, and each says how it could be tested.</p>
+      <ul class="tw-diag" data-draw="hist-diagnosis" data-source="registry_diagnosis"></ul>
+    </div>
+
+    <div class="tw-card" id="hist-checkpoints">
+      <h3 class="tw-sub">Checkpoint history</h3>
+      <div class="tw-table-wrap">
+        <table class="tw-table" data-source="registry_checkpoints" data-row-key="checksum">
+          <thead><tr>
+            <th data-field="version" class="tw-num">Version</th>
+            <th data-field="step" class="tw-num">Training step</th>
+            <th data-field="kind">Kind</th>
+            <th data-field="checksum">Checksum</th>
+            <th data-field="rng_state">Random state saved</th>
+          </tr></thead>
+          <tbody data-draw="hist-checkpoints"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="tw-section" id="decision-replay">
+    <h2>Decision replay</h2>
+    <p class="tw-muted">Step through the selected agent's worst test run in an evaluation, one decision at a time: what it chose, the account before, and what happened next. Tap the chart or use the buttons.</p>
+    <div class="tw-row">
+      <label for="tw-dr-eval" class="tw-small tw-muted">Evaluation</label>
+      <select id="tw-dr-eval" class="dash-select" data-draw="dr-eval-select" aria-label="Evaluation to replay" data-source="registry_evals"></select>
+      <label for="tw-dr-filter" class="tw-small tw-muted">Step through</label>
+      <select id="tw-dr-filter" class="dash-select tw-dr-filter" aria-label="Which decisions to step through">
+        <option value="all">Every decision</option>
+        <option value="change">Position changes only</option>
+        <option value="loss">Losing decisions only</option>
+        <option value="event">Deaths and rejected orders</option>
+        <option value="large">Largest positions (top 5%)</option>
+      </select>
+      <button type="button" class="tw-btn tw-dr-prev">Previous</button>
+      <button type="button" class="tw-btn tw-dr-next">Next</button>
+    </div>
+    <div class="tw-card">
+      <div class="tw-chart" style="min-height: 300px" data-draw="dr-chart" data-source="registry_decisions" role="img" aria-label="Account and position size over the replayed test run; the selected decision is marked"></div>
+    </div>
+    <div class="tw-card" id="dr-detail">
+      <h3 class="tw-sub">Decision <span data-draw="dr-step" data-source="registry_decisions" data-field="step">—</span></h3>
+      <div class="tw-detail" data-draw="dr-detail" data-source="registry_decisions"></div>
     </div>
   </section>
 
@@ -390,3 +530,4 @@
       .on('pointerleave', () => tip.style('display', 'none'));
   });
 </script>
+<script src="history.js"></script>

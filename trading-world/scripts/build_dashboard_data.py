@@ -117,12 +117,118 @@ def write_csv(path, rows):
         w.writerows(rows)
 
 
+# ---------------------------------------------------------------------------- agent registry
+def _r(x, n=4):
+    return None if x is None or (isinstance(x, float) and not math.isfinite(x)) else round(float(x), n)
+
+
+def registry_rows(reg_root: Path):
+    """Agent History data: identities, versions, checkpoints, evaluations, diagnosis, training
+    curves and the worst test run of every evaluation for decision replay."""
+    import io
+
+    import numpy as np
+    import pandas as pd
+
+    from tradeworld.learning.compare import training_progress
+    from tradeworld.learning.evaluate import decision_samples
+    from tradeworld.registry.registry import Registry
+
+    reg = Registry(reg_root)
+    agents, versions, ckpts, evals, diag, train, decisions = [], [], [], [], [], [], []
+    for a in reg.agents():
+        i, st_ = reg.identity(a), reg.state(a)
+        agents.append(dict(agent_id=a, name=i["name"], task=i["task"], task_name=TASK_NAMES.get(i["task"], i["task"]),
+                           reward=i["reward"], reward_name=REWARD_NAMES.get(i["reward"], i["reward"]),
+                           seed=i["original_seed"], created_at=i["created_at"], status=st_["status"].replace("_", " "),
+                           current_version=st_["current_version"], training_attempts=st_["training_attempts"],
+                           evaluations=st_["evaluations"], failed_evaluations=st_["failed_evaluations"],
+                           passed_on_version=st_["passed_on_version"] or "",
+                           passed_on_evaluation=st_["passed_on_evaluation"] or "",
+                           champion_version=(st_["champion"] or {}).get("version", "")))
+        for v in reg.versions(a):
+            tr = v.get("training", {})
+            ch = v.get("changes", {})
+            versions.append(dict(agent_id=a, version=v["version"], parent=v.get("parent_version") or "",
+                                 kind=v["kind"].replace("_", " "), reason=v.get("reason", ""),
+                                 steps_added=tr.get("steps_added"), total_steps=tr.get("step_end"),
+                                 changes="; ".join(f"{k} = {json.dumps(x)}" for k, x in ch.items()) or "none",
+                                 checkpoints=len(v.get("checkpoints", [])),
+                                 history="complete" if v.get("history", {}).get("complete") else "not recorded",
+                                 recorded_at=v["recorded_at"], code=v.get("code_version", {}).get("git_commit", "")[:10]))
+            for c in v.get("checkpoints", []):
+                ckpts.append(dict(agent_id=a, version=v["version"], step=c.get("step"), kind=c.get("kind", ""),
+                                  checksum=c["model_sha256"][:12],
+                                  rng_state="yes" if c.get("state_sha256") else "no"))
+        seen = set()
+        for e in reg.evaluations(a):
+            s, m = e["summary"], (e.get("diagnosis") or {}).get("metrics", {})
+            original = e["version"] not in seen
+            seen.add(e["version"])
+            evals.append(dict(agent_id=a, version=e["version"], round_id=e["round_id"], eval_id=e["eval_id"],
+                              original="first evaluation" if original else "later round",
+                              result=e["result"], reason=e.get("reason", ""),
+                              growth_pct=_r(100 * (math.exp(s["lg"]) - 1), 1), deaths_pct=round(100 * s["died"]),
+                              avg_leverage=_r(s["gross"], 2), median_leverage=_r(m.get("median_leverage"), 2),
+                              max_leverage=_r(m.get("max_leverage"), 1), share_over_fatal_pct=_r(100 * m["share_over_fatal"], 1)
+                              if m.get("share_over_fatal") is not None else None,
+                              fatal_leverage=_r(m.get("fatal_leverage"), 1),
+                              trade_frequency_pct=_r(100 * m["trade_frequency"], 0) if m.get("trade_frequency") is not None else None,
+                              aligned_pct=_r(100 * m["aligned_with_edge"], 0) if m.get("aligned_with_edge") is not None else None,
+                              recorded_at=e["recorded_at"]))
+            for kind, key in (("Observed", "observations"), ("Possible explanation", "possible_explanations")):
+                for o in (e.get("diagnosis") or {}).get(key, []):
+                    diag.append(dict(agent_id=a, version=e["version"], round_id=e["round_id"], kind=kind,
+                                     code=o["code"], text=o["text"]))
+            if e.get("decision_samples_sha256"):
+                d = decision_samples(reg, e)
+                worst = e["sample_episodes"][0]
+                d = d[d["episode"] == worst]
+                p0 = float(d["price"].iloc[0])
+                for x in d.itertuples():
+                    decisions.append(dict(
+                        eval_id=e["eval_id"], agent_id=a, version=e["version"], round_id=e["round_id"],
+                        episode=int(x.episode), step=int(x.step), price=_r(100 * x.price / p0, 3),
+                        direction={1: "long", -1: "short", 0: "flat"}[int(x.direction)],
+                        size_chosen=_r(x.gross_selected, 4), leverage=_r(x.leverage_after_fill, 3),
+                        position_change=x.position_change.replace("_", " "), equity_before=_r(x.equity_before, 4),
+                        equity_after=_r(x.equity_after, 4), reward=_r(x.reward, 6),
+                        costs=_r(x.cost_spread + x.cost_slippage + x.cost_commission + x.cost_swap, 5),
+                        market_move_pct=_r(100 * x.market_return, 3),
+                        expected_move_pct=_r(100 * x.expected_return, 4) if np.isfinite(x.expected_return) else None,
+                        rejected=x.rejected or "", died="yes" if x.died else "", death_reason=x.death_reason or ""))
+        tp = training_progress(reg, a)
+        for x in tp.itertuples() if len(tp) else []:
+            train.append(dict(agent_id=a, version=int(x.version), step=int(x.step), growth=_r(x.growth, 4),
+                              death_rate=_r(x.died, 3), avg_leverage=_r(x.mean_gross, 3), drawdown=_r(x.drawdown, 3)))
+    return dict(agents=agents, versions=versions, checkpoints=ckpts, evals=evals, diagnosis=diag,
+                training=train, decisions=decisions)
+
+
+def write_registry(reg_root: Path, out: Path) -> dict:
+    data = registry_rows(reg_root)
+    n = {}
+    for k, rows in data.items():
+        if k in ("training", "decisions"):
+            path = out / f"registry_{k}.csv"
+            if rows:
+                write_csv(path, rows)
+            else:
+                path.write_text({"training": "agent_id,version,step,growth,death_rate,avg_leverage,drawdown",
+                                 "decisions": "eval_id,agent_id,version,round_id,episode,step"}[k] + "\n")
+        else:
+            (out / f"registry_{k}.json").write_text("[\n" + ",\n".join(json.dumps(r) for r in rows) + "\n]\n")
+        n[k] = len(rows)
+    return n
+
+
 def main():
     global RUNS, OUT
     import argparse
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", default=str(RUNS))
     ap.add_argument("--out", default=str(OUT))
+    ap.add_argument("--registry", default=str(ROOT / "registry"))
     a = ap.parse_args()
     RUNS, OUT = Path(a.runs), Path(a.out)
     OUT.mkdir(parents=True, exist_ok=True)
@@ -134,6 +240,8 @@ def main():
     else:
         (OUT / "replay.csv").write_text("agent,step,price,net_exposure,gross_exposure,equity,regime\n")
     write_csv(OUT / "downloads.csv", download_rows())
+    if (Path(a.registry) / "agents").exists():
+        print("registry:", write_registry(Path(a.registry), OUT))
     print(f"agents: {len(agents)} ({sum(a['status'] == 'trained' for a in agents)} trained); "
           f"replay rows: {len(rep)}; written to {OUT}")
 
