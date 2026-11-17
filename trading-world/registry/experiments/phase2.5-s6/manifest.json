@@ -1,0 +1,176 @@
+{
+ "agents": {
+  "R1-0": {
+   "agent_id": "ag-f600deda26",
+   "reward": "R1",
+   "seed": 0,
+   "v1_checkpoint": "00d327fc51c891531b406d8ea936726ff254904c0203b36a3634da94cc60e135"
+  },
+  "R1-1": {
+   "agent_id": "ag-e5b8dd8004",
+   "reward": "R1",
+   "seed": 1,
+   "v1_checkpoint": "4980ead12ad73d69df4fc2632ef35a78478584dddfb09b54bd5088b72cab680d"
+  },
+  "R1-2": {
+   "agent_id": "ag-1a4d3a7344",
+   "reward": "R1",
+   "seed": 2,
+   "v1_checkpoint": "31ab430fbe4f495f02412e0c1babdc9849448ddf6b71421d4035268c689a1522"
+  },
+  "R2-0": {
+   "agent_id": "ag-6173b83b7f",
+   "reward": "R2",
+   "seed": 0,
+   "v1_checkpoint": "2063c46fd557ab44a6d687dce09906a52533c1059f2e637450cf01982779ee99"
+  },
+  "R2-1": {
+   "agent_id": "ag-293025bf08",
+   "reward": "R2",
+   "seed": 1,
+   "v1_checkpoint": "aa77d72384d27f805699468f87918a56541a62443581a6c0ce9ca1e86aaa0a7c"
+  },
+  "R2-2": {
+   "agent_id": "ag-d663028d69",
+   "reward": "R2",
+   "seed": 2,
+   "v1_checkpoint": "e4934cbdd6541baeaa52832be58054df909d782125ca93dd15aa43eddcf267b5"
+  }
+ },
+ "approval_conditions": [
+  "1 Six S6 agents, arms A and B, three stages of 1M steps; Version 1 preserved; new versions branch from their original checkpoints with complete parent-child history.",
+  "2 Rounds 1-3 for learning curves and candidate selection; candidates recorded and locked before round 4; round 4 confirmation only; round 5 replication only; no re-selection from rounds 4-5; failures recorded honestly.",
+  "3 Exact schedule: 33 versions, 138 evaluations (15, 24, 33, 33, 33).",
+  "4 Decision-quality score documented and validated before training (docs/decisions/0004).",
+  "5 Checkpoint every 250,000 steps; checkpoint, optimizer, exploration, RNG state and history preserved when branching.",
+  "6 Frozen: S6 mechanics, rewards, scoring rules, simulator, costs, margin, death threshold, action space, pass/fail criteria; no leverage cap, new penalties, reward or learning-algorithm changes.",
+  "7 Arms C and D not approved.",
+  "8 Report every agent and version, including failures.",
+  "9 Decision-quality score Q2.0 (clamped Kelly) approved by the owner on condition that the mathematics is correct; independent verification passed 36 of 36 checks (reports/phase25/q2_math_verification.md); frozen for S6.",
+  "10 Selection: highest mean Q2.0 over rounds 1-3 among versions with median size >= 0.5x; growth seed 1 must also be closer to the growth-optimal size than version 1 (rounds 1-3). Locked before round 4.",
+  "11 No trading style is prescribed (decision 0005); agents discover their own approach and position sizing."
+ ],
+ "arms": {
+  "A": "more training on the original practice market",
+  "B": "more training on new S6 market paths"
+ },
+ "checkpoint_every": 250000,
+ "compute": {
+  "estimate": "about 2 h 10 min on 4 cores (measured: 12.4 min per 1M-step job with 4 in parallel, 21.5 s per evaluation)",
+  "evaluations": 138,
+  "storage": "about 80 MB in the repository (checkpoints about 60 MB)",
+  "training_steps": 27000000
+ },
+ "control_arms": [
+  "B"
+ ],
+ "decision_quality": {
+  "checksum": "0d0c6486487edacee4b54a34180d63855d77c413ab79e5bb15f27616aa292147",
+  "definition": "Per decision with net exposure G (position value / equity): s(G) = max(g(G) / g(G*), F), and s(G) = F for a ruinous decision. g(G) = (1 - p) E_Z[ln(1 + G (e^(m + sigma Z) - 1))] + p ln(1 - G J) is the exact expected log growth of holding G for one decision (96-point Gauss-Hermite quadrature; minus infinity if G >= 1/J). G* = argmax g. F = g(G_ruin) / g(G*), the score of the smallest ruinous long position (G_ruin = 0.95 / J in S6; for a market without crashes, the size at which a 5-sigma fall reaches the 5% death line). Ruinous: G >= G_ruin long, or |G| >= 0.95 / (e^(m + 5 sigma) - 1) short. Q2 of an episode = mean of s over its decisions; Q2 of an evaluation = mean of the episode values. Uses only the decisions and the market's known parameters, never realised returns.",
+  "frozen": true,
+  "version": "Q2.0"
+ },
+ "evaluations": {
+  "per_round": {
+   "1": 15,
+   "2": 24,
+   "3": 33,
+   "4": 33,
+   "5": 33
+  },
+  "total": 138,
+  "versions": 33
+ },
+ "experiment_id": "phase2.5-s6",
+ "frozen": "S6 market mechanics, reward functions, scoring rules, simulator, trading costs, margin, death threshold, action space, pass/fail criteria, learning algorithm; no leverage cap, no new penalties. Arms C and D not approved.",
+ "market": "S6",
+ "planned_at": "2026-11-17T11:17:20Z",
+ "schedule": {
+  "1": {
+   "R1": [
+    "v1",
+    "A1",
+    "B1"
+   ],
+   "R2": [
+    "v1",
+    "B1"
+   ]
+  },
+  "2": {
+   "R1": [
+    "v1",
+    "A1",
+    "A2",
+    "B1",
+    "B2"
+   ],
+   "R2": [
+    "v1",
+    "B1",
+    "B2"
+   ]
+  },
+  "3": {
+   "R1": [
+    "v1",
+    "A1",
+    "A2",
+    "A3",
+    "B1",
+    "B2",
+    "B3"
+   ],
+   "R2": [
+    "v1",
+    "B1",
+    "B2",
+    "B3"
+   ]
+  },
+  "4": {
+   "R1": [
+    "v1",
+    "A1",
+    "A2",
+    "A3",
+    "B1",
+    "B2",
+    "B3"
+   ],
+   "R2": [
+    "v1",
+    "B1",
+    "B2",
+    "B3"
+   ]
+  },
+  "5": {
+   "R1": [
+    "v1",
+    "A1",
+    "A2",
+    "A3",
+    "B1",
+    "B2",
+    "B3"
+   ],
+   "R2": [
+    "v1",
+    "B1",
+    "B2",
+    "B3"
+   ]
+  }
+ },
+ "selection_rule": "Rounds 1-3 only. For each growth seed, among its six continued versions (A1-A3, B1-B3), choose the one with the highest mean Q2.0 over every test run it played in rounds 1-3, among eligible versions. Eligible: mean median position size over those rounds of at least 0.5x; for growth seed 1 also a mean median position size closer (in ratio) to the growth-optimal size than version 1's, both measured over rounds 1-3. If no version is eligible, choose the highest Q2 and record that none was eligible. Ties: lower ruinous share. Recorded and locked (write-once) before round 4; rounds 4 and 5 can never change it.",
+ "stages": 3,
+ "steps_per_stage": 1000000,
+ "success_criteria": [
+  "C1 ruinous decisions fall to at most half of version 1's share, or below 1% (round 4)",
+  "C2 decision quality Q2.0 rises: 95% paired-bootstrap interval of (candidate - version 1) over the 20 identical test runs lies above zero (round 4)",
+  "C3 median position size at least 0.5x; if version 1's median was below 0.5x, the candidate's median must also be closer (in ratio) to the growth-optimal size (round 4)",
+  "C4 replication: C1 and C2 hold again in round 5",
+  "Improvement is claimed only if at least 2 of 3 growth seeds meet C1-C4. If the matched controls meet C1 and C2 as often, the improvement is reported as not clearly due to learning from consequences."
+ ]
+}
