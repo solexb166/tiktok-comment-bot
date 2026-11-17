@@ -49,7 +49,8 @@ def main():
               f"git {tr['git_commit'][:10]}, Python {tr['python']}, torch {tr['torch']}, SB3 {tr['sb3']}, "
               f"gymnasium {tr['gymnasium']}, numpy {tr['numpy']}. PPO {tr['ppo']}. Policy {tr['policy']}. "
               f"Env {tr['env']}. {tr['test_episodes']} test episodes x {tr['episode_decisions']} decisions. "
-              f"Train steps per agent: {any_run['train_steps']:,}. Data hashes and seeds are in each run's JSON."]
+              "Train steps per agent: " + ", ".join(f"{t} {st:,}" for t, st in sorted({r['task']: r['train_steps'] for r in runs}.items()))
+              + ". Data hashes and seeds are in each run's JSON."]
     text = "\n".join(L) + "\n"
     Path(a.out).parent.mkdir(exist_ok=True)
     Path(a.out).write_text(text)

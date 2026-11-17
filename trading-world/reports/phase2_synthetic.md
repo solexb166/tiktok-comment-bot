@@ -46,4 +46,4 @@ Criteria were fixed before running (docs/decisions/0002-phase2-gate-criteria.md)
 
 ## Reproducibility
 
-git ad8214f9e3, Python 3.13.18, torch 2.15.0+cpu, SB3 2.9.2, gymnasium 1.4.0, numpy 2.5.3. PPO {'n_steps': 1024, 'batch_size': 512, 'n_epochs': 10, 'learning_rate': 0.0003, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.0}. Policy {'net_arch': [64, 64], 'log_std_init': -0.5}. Env {'decision_interval': 1, 'obs_resolution': 1, 'window': 30}. 20 test episodes x 1000 decisions. Train steps per agent: 1,000,000. Data hashes and seeds are in each run's JSON.
+git ad8214f9e3, Python 3.13.18, torch 2.15.0+cpu, SB3 2.9.2, gymnasium 1.4.0, numpy 2.5.3. PPO {'n_steps': 1024, 'batch_size': 512, 'n_epochs': 10, 'learning_rate': 0.0003, 'gamma': 0.99, 'gae_lambda': 0.95, 'clip_range': 0.2, 'ent_coef': 0.0}. Policy {'net_arch': [64, 64], 'log_std_init': -0.5}. Env {'decision_interval': 1, 'obs_resolution': 1, 'window': 30}. 20 test episodes x 1000 decisions. Train steps per agent: S1 1,000,000, S2 1,000,000, S3 1,000,000, S4 1,000,000, S5 1,000,000, S6 3,000,000, S7 3,000,000. Data hashes and seeds are in each run's JSON.
