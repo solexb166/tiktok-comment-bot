@@ -83,6 +83,16 @@ class ActionMapper:
             return float(np.logaddexp(0.0, u))
         return 10.0 ** (self.log10_min + (u + 1.0) / 2.0 * (self.log10_max - self.log10_min))
 
+    def gross_array(self, u) -> np.ndarray:
+        """Vectorised gross(): size outputs are first clipped to their range exactly as map() does."""
+        lo, hi = self.size_bounds
+        u = np.clip(np.asarray(u, dtype=np.float64), lo, hi)
+        if self.size_repr == "exp":
+            return np.exp(u)
+        if self.size_repr == "softplus":
+            return np.logaddexp(0.0, u)
+        return 10.0 ** (self.log10_min + (u + 1.0) / 2.0 * (self.log10_max - self.log10_min))
+
     def u_for_gross(self, G: float) -> float:
         """Inverse of gross(): the size output that produces gross level G (clipped to its range)."""
         lo, hi = self.size_bounds

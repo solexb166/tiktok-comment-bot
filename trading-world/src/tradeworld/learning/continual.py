@@ -34,7 +34,9 @@ HYPER_KEYS = ("learning_rate", "n_steps", "batch_size", "n_epochs", "gamma", "ga
               "vf_coef", "max_grad_norm", "target_kl")
 # Initial training settings a NEW experimental agent (version 1, no parent) may be created with
 # (Phase 3, proposal 0006 options A and D). Existing agents and continued versions never use them.
-INITIAL_SETTINGS = ("learning_rate", "n_epochs", "target_kl", "gamma")
+INITIAL_SETTINGS = ("learning_rate", "n_epochs", "target_kl", "gamma", "size_log_std")
+# size_log_std (Phase 3 Exp 1b): starting log std of the exploration noise on the size output,
+# replacing U_LOG_STD_INIT. Only the starting value: PPO keeps learning it as before.
 
 
 def hyperparameters(model) -> dict:
@@ -157,10 +159,11 @@ def train_version(reg: Registry, agent_id: str, *, steps: int, parent: int | Non
     if parent is None:
         torch.manual_seed(seed)
         pk = dict(POLICY_DEFAULTS, activation_fn=torch.nn.Tanh)
+        ppo_settings = {k: v for k, v in initial_settings.items() if k != "size_log_std"}
         model = PPO("MlpPolicy", venv, seed=seed, policy_kwargs=pk, verbose=0, device="cpu",
-                    **{**PPO_DEFAULTS, **initial_settings})
+                    **{**PPO_DEFAULTS, **ppo_settings})
         with torch.no_grad():
-            model.policy.log_std[-1] = float(U_LOG_STD_INIT)
+            model.policy.log_std[-1] = float(initial_settings.get("size_log_std", U_LOG_STD_INIT))
     else:
         sha = changes.get("resume_from_checkpoint") or reg.version(agent_id, parent)["final_checkpoint"]["model_sha256"]
         parent_ckpt = _find_checkpoint(reg, agent_id, sha)
