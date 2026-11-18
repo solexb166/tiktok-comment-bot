@@ -1,0 +1,1018 @@
+{
+ "agents": {
+  "C1m-s1": {
+   "agent_id": "ag-bd6d29722b",
+   "group": "C1m",
+   "seed": 1048,
+   "seed_index": 1
+  },
+  "C1m-s2": {
+   "agent_id": "ag-7367299748",
+   "group": "C1m",
+   "seed": 1049,
+   "seed_index": 2
+  },
+  "C1m-s3": {
+   "agent_id": "ag-784c291f84",
+   "group": "C1m",
+   "seed": 1050,
+   "seed_index": 3
+  },
+  "C1m-s4": {
+   "agent_id": "ag-3e932cb071",
+   "group": "C1m",
+   "seed": 1051,
+   "seed_index": 4
+  },
+  "C1m-s5": {
+   "agent_id": "ag-5b660bcc56",
+   "group": "C1m",
+   "seed": 1052,
+   "seed_index": 5
+  },
+  "C1m-s6": {
+   "agent_id": "ag-55f8ba1b4c",
+   "group": "C1m",
+   "seed": 1053,
+   "seed_index": 6
+  },
+  "C2-tail-s1": {
+   "agent_id": "ag-b097949266",
+   "group": "C2-tail",
+   "seed": 1048,
+   "seed_index": 1
+  },
+  "C2-tail-s2": {
+   "agent_id": "ag-78bb1bf792",
+   "group": "C2-tail",
+   "seed": 1049,
+   "seed_index": 2
+  },
+  "C2-tail-s3": {
+   "agent_id": "ag-8e94fe2ac9",
+   "group": "C2-tail",
+   "seed": 1050,
+   "seed_index": 3
+  },
+  "C2-tail-s4": {
+   "agent_id": "ag-674412c1fa",
+   "group": "C2-tail",
+   "seed": 1051,
+   "seed_index": 4
+  },
+  "C2-tail-s5": {
+   "agent_id": "ag-c3c151e5bc",
+   "group": "C2-tail",
+   "seed": 1052,
+   "seed_index": 5
+  },
+  "C2-tail-s6": {
+   "agent_id": "ag-8b5ef56d3a",
+   "group": "C2-tail",
+   "seed": 1053,
+   "seed_index": 6
+  },
+  "C2-up-s1": {
+   "agent_id": "ag-8ffe5cf11b",
+   "group": "C2-up",
+   "seed": 1048,
+   "seed_index": 1
+  },
+  "C2-up-s2": {
+   "agent_id": "ag-95cf025f79",
+   "group": "C2-up",
+   "seed": 1049,
+   "seed_index": 2
+  },
+  "C2-up-s3": {
+   "agent_id": "ag-5d050157ac",
+   "group": "C2-up",
+   "seed": 1050,
+   "seed_index": 3
+  },
+  "C2-up-s4": {
+   "agent_id": "ag-e0b54f65df",
+   "group": "C2-up",
+   "seed": 1051,
+   "seed_index": 4
+  },
+  "C2-up-s5": {
+   "agent_id": "ag-45be0cdce4",
+   "group": "C2-up",
+   "seed": 1052,
+   "seed_index": 5
+  },
+  "C2-up-s6": {
+   "agent_id": "ag-7b1403c797",
+   "group": "C2-up",
+   "seed": 1053,
+   "seed_index": 6
+  }
+ },
+ "analysis": {
+  "criteria": [
+   "Phase 3 Experiment 1b: the pre-registered analysis (approved by the owner 2026-11-18).",
+   "Frozen before any Experiment 1b agent is trained: the manifest records this file's SHA-256 (and",
+   "those of every file it relies on); the report refuses to run if any of them changed.",
+   "Groups: C1m (size = e^z), C2-up and C2-tail (size = softplus(z)), with starting exploration noise",
+   "matched to the control in actual position-size terms (see the manifest). Six seed indices; the same",
+   "fresh training seed for a given index in every group (paired). Each agent is judged on its FINAL",
+   "checkpoint only, on two fresh evaluation rounds of 20 test runs (40 runs).",
+   "A seed is a SUCCESSFUL GROWTH AGENT only if all hold:",
+   "W1  ruinous decisions below 1%",
+   "W2  at most 1 death in the 40 test runs",
+   "W3  median position size within x2 of the growth-optimal size (1.47x to 5.86x)",
+   "W4  decision quality Q2.0 at least 0.50",
+   "W5  mean log growth per run above zero with its 95% bootstrap interval above zero, and in each",
+   "round above the 95th percentile of ten leverage- and turnover-matched random agents",
+   "W6  previous-move tilt below 1.5 (as Experiment 1: mean size after a previous-bar move above",
+   "+2 sd / below -2 sd, sd = 1.4826 x MAD, symmetric)",
+   "W7  progressive learning in training: the median over training episodes of the episode's mean",
+   "size is closer to the optimum (|ln(size / G*)|) in the last 20% of training episodes than in",
+   "the first 20%, AND the ruinous share in the last 20% of training episodes is below 1%",
+   "E   exploitation checks clear: own-training-path Q2 minus fresh Q2 at most 0.5; share of",
+   "decisions at 1,000x or more below 0.1%; rejected-order share at most 0.1% (Experiment 1",
+   "control: 0.000%); size output at its numerical safeguard bound in below 0.1% of decisions",
+   "A GROUP supports safe growth if at least 4 of its 6 seeds meet every criterion.",
+   "Interpretation (fixed in advance, checked in this order):",
+   "\"safe growth\"                          the group supports safe growth (above)",
+   "\"earlier safety came from reduced exploration\"   ruinous share >= 1% in at least 3 of 6 seeds",
+   "\"safe but timid\"                       W1 met in at least 4 seeds and W3 in at most 2",
+   "\"mixed\"                                anything else",
+   "Zero ruinous decisions alone is never counted as successful learning.",
+   "Statistics: per seed, bootstrap 95% intervals over the 40 runs; per group, mean with a bootstrap",
+   "interval across seeds. Planned comparisons, each new group against its Experiment 1 representation",
+   "(C1 or C2) and against the Experiment 1 control, on Q2, ruinous share and distance from the optimum",
+   "|ln(median / G*)|: exact two-sided permutation tests across seeds (924 relabellings), Holm-corrected",
+   "over all 18 comparisons, with bootstrap intervals of the difference. Between new groups on the same",
+   "seed index: exact two-sided sign-flip tests (64 assignments), descriptive only."
+  ],
+  "file": "src/tradeworld/learning/phase3b_analysis.py"
+ },
+ "approval_conditions": [
+  "Three groups approved: C1m (exact match), C2-up (upward step matched at the optimum), C2-tail (ruin chance matched at the optimum); 18 agents, six independent paired seeds per group.",
+  "Pre-registered criteria W1-W7 and E approved; a group supports safe growth if at least 4 of 6 seeds meet every one.",
+  "1 Exact configurations preserved and their checksums frozen before training.",
+  "2 Actual exploration distributions recorded throughout training, not only their initial settings.",
+  "3 Zero ruinous bets alone is not evidence of successful learning.",
+  "4 Every seed reported individually, including failures.",
+  "5 Safe growth, reduced exploration and safe-but-timid behaviour kept distinct.",
+  "6 Numerical safeguards must not act as exposure caps or clip usable size outputs; verification documented.",
+  "7 Original agents verified to behave identically after the implementation.",
+  "8 No change to frozen rewards, market rules, scoring rules or historical records.",
+  "Experiment 2 not started; no combination of experimental changes."
+ ],
+ "checkpoint_every": 250000,
+ "compute": {
+  "estimate": "about 3.2 h training on 4 cores plus about 45 min of evaluation",
+  "evaluations": 162,
+  "matched_null_sets": 36,
+  "training_steps": 54000000
+ },
+ "curve_every": 500000,
+ "decision_quality": {
+  "checksum": "0d0c6486487edacee4b54a34180d63855d77c413ab79e5bb15f27616aa292147",
+  "definition": "Per decision with net exposure G (position value / equity): s(G) = max(g(G) / g(G*), F), and s(G) = F for a ruinous decision. g(G) = (1 - p) E_Z[ln(1 + G (e^(m + sigma Z) - 1))] + p ln(1 - G J) is the exact expected log growth of holding G for one decision (96-point Gauss-Hermite quadrature; minus infinity if G >= 1/J). G* = argmax g. F = g(G_ruin) / g(G*), the score of the smallest ruinous long position (G_ruin = 0.95 / J in S6; for a market without crashes, the size at which a 5-sigma fall reaches the 5% death line). Ruinous: G >= G_ruin long, or |G| >= 0.95 / (e^(m + 5 sigma) - 1) short. Q2 of an episode = mean of s over its decisions; Q2 of an evaluation = mean of the episode values. Uses only the decisions and the market's known parameters, never realised returns.",
+  "frozen": true,
+  "version": "Q2.0"
+ },
+ "env_settings": {
+  "decision_interval": 1,
+  "obs_resolution": 1,
+  "window": 30
+ },
+ "episode_decisions": 1000,
+ "evaluated_checkpoint": "each agent's final checkpoint (no selection)",
+ "experiment_id": "phase3-exp1b",
+ "exploration_design": {
+  "by_start_size": {
+   "C1m": [
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 0.10007305650445861,
+     "minus1sd": 0.469725682803456,
+     "minus2sd": 0.22100750492610957,
+     "p1": 0.01720760666562596,
+     "p99": 0.5826469626680664,
+     "p_ge_optimum": 4e-06,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 2.1325417976256453,
+     "plus2sd": 4.550222414400299,
+     "start": 0.1
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 0.5003652825222928,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 0.08603803332812979,
+     "p99": 2.9132348133403316,
+     "p_ge_optimum": 0.00978,
+     "p_ge_ruin": 5.2e-05,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 0.5
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 0.6936063546324024,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 0.11926592179945347,
+     "p99": 4.038326098252368,
+     "p_ge_optimum": 0.028404,
+     "p_ge_ruin": 0.000275,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 0.6931
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 1.0007305650445857,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 0.17207606665625955,
+     "p99": 5.826469626680662,
+     "p_ge_optimum": 0.077533,
+     "p_ge_ruin": 0.001434,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 1.0
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 1.4210374023633117,
+     "minus1sd": 0.46972568280345584,
+     "minus2sd": 0.22100750492610946,
+     "p1": 0.24434801465188855,
+     "p99": 8.27358686988654,
+     "p_ge_optimum": 0.169349,
+     "p_ge_ruin": 0.005937,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 1.42
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 2.932841066976167,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 0.5043033285494999,
+     "p99": 17.075634534913014,
+     "p_ge_optimum": 0.500392,
+     "p_ge_ruin": 0.059991,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 2.9307
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 5.003652825222928,
+     "minus1sd": 0.46972568280345584,
+     "minus2sd": 0.22100750492610946,
+     "p1": 0.8603803332812977,
+     "p99": 29.13234813340331,
+     "p_ge_optimum": 0.760299,
+     "p_ge_ruin": 0.198685,
+     "plus1sd": 2.132541797625644,
+     "plus2sd": 4.550222414400297,
+     "start": 5.0
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 9.506940367923562,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 1.634722633234465,
+     "p99": 55.351461453466285,
+     "p_ge_optimum": 0.940207,
+     "p_ge_ruin": 0.500399,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400299,
+     "start": 9.499999999999998
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 20.014611300891715,
+     "minus1sd": 0.46972568280345584,
+     "minus2sd": 0.22100750492610946,
+     "p1": 3.441521333125191,
+     "p99": 116.5293925336132,
+     "p_ge_optimum": 0.994343,
+     "p_ge_ruin": 0.837684,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400297,
+     "start": 20.0
+    }
+   ],
+   "C2-tail": [
+    {
+     "lnsize_sd": 3.456250081197717,
+     "median": 0.10039217074399327,
+     "minus1sd": 0.014901805053742138,
+     "minus2sd": 0.00021343770497954438,
+     "p1": 5.213134125771059e-06,
+     "p99": 7.675057024508215,
+     "p_ge_optimum": 0.114222,
+     "p_ge_ruin": 0.002884,
+     "plus1sd": 21.387376952973597,
+     "plus2sd": 62.83911353028941,
+     "start": 0.1
+    },
+    {
+     "lnsize_sd": 3.0202579433390793,
+     "median": 0.5016205151361545,
+     "minus1sd": 0.01831323731988959,
+     "minus2sd": 0.0002632932097273621,
+     "p1": 3.215551883171952e-05,
+     "p99": 9.49408428287806,
+     "p_ge_optimum": 0.219432,
+     "p_ge_ruin": 0.009974,
+     "plus1sd": 7.708462473590995,
+     "plus2sd": 16.20352580847599,
+     "start": 0.5
+    },
+    {
+     "lnsize_sd": 2.9048166963630844,
+     "median": 0.6951587163941337,
+     "minus1sd": 0.020312772544027167,
+     "minus2sd": 0.0002927515280326613,
+     "p1": 4.95624334922189e-05,
+     "p99": 9.926715603495362,
+     "p_ge_optimum": 0.25047,
+     "p_ge_ruin": 0.013031,
+     "plus1sd": 6.174316710204982,
+     "plus2sd": 12.313250965676957,
+     "start": 0.6931
+    },
+    {
+     "lnsize_sd": 2.755844556026606,
+     "median": 1.00260212932402,
+     "minus1sd": 0.02407262488067898,
+     "minus2sd": 0.0003486573277616284,
+     "p1": 8.516874911272665e-05,
+     "p99": 10.46811439729655,
+     "p_ge_optimum": 0.292358,
+     "p_ge_ruin": 0.017972,
+     "plus1sd": 4.815030619538327,
+     "plus2sd": 9.075651262652665,
+     "start": 1.0
+    },
+    {
+     "lnsize_sd": 2.585932201480408,
+     "median": 1.4231206806795056,
+     "minus1sd": 0.03064958799503316,
+     "minus2sd": 0.00044821330757190397,
+     "p1": 0.00015548976012980567,
+     "p99": 11.070082006993841,
+     "p_ge_optimum": 0.342434,
+     "p_ge_ruin": 0.025061,
+     "plus1sd": 3.812209699606843,
+     "plus2sd": 6.815197169202905,
+     "start": 1.42
+    },
+    {
+     "lnsize_sd": 2.0901233764994904,
+     "median": 2.934594334103764,
+     "minus1sd": 0.076565130735923,
+     "minus2sd": 0.0012263090648648904,
+     "p1": 0.0008789928054963155,
+     "p99": 12.802627806408866,
+     "p_ge_optimum": 0.500397,
+     "p_ge_ruin": 0.059992,
+     "plus1sd": 2.4370358605257465,
+     "plus2sd": 3.893297507691295,
+     "start": 2.9307
+    },
+    {
+     "lnsize_sd": 1.5250379740227966,
+     "median": 5.004085737487046,
+     "minus1sd": 0.22565191342701135,
+     "minus2sd": 0.0058956208746530625,
+     "p1": 0.0072804584633087205,
+     "p99": 14.920000695596244,
+     "p_ge_optimum": 0.690919,
+     "p_ge_ruin": 0.145296,
+     "plus1sd": 1.8517800531993684,
+     "plus2sd": 2.705490513556247,
+     "start": 5.0
+    },
+    {
+     "lnsize_sd": 0.6996685056534215,
+     "median": 9.504113089530254,
+     "minus1sd": 0.5525522190459178,
+     "minus2sd": 0.13803449792079714,
+     "p1": 0.5081239170490746,
+     "p99": 19.42668626269122,
+     "p_ge_optimum": 0.940207,
+     "p_ge_ruin": 0.500399,
+     "plus1sd": 1.4489991523727406,
+     "plus2sd": 1.8983302256299133,
+     "start": 9.499999999999998
+    },
+    {
+     "lnsize_sd": 0.22807182370668838,
+     "median": 20.004113396784728,
+     "minus1sd": 0.7872027882652722,
+     "minus2sd": 0.5748719323095645,
+     "p1": 10.087883323331493,
+     "p99": 29.926761111604826,
+     "p_ge_optimum": 0.999975,
+     "p_ge_ruin": 0.993084,
+     "plus1sd": 1.2132782874424826,
+     "plus2sd": 1.426710599066887,
+     "start": 20.0
+    }
+   ],
+   "C2-up": [
+    {
+     "lnsize_sd": 2.8247943060462077,
+     "median": 0.10030969030047755,
+     "minus1sd": 0.03638635521213822,
+     "minus2sd": 0.0012727150200878149,
+     "p1": 4.179615560080151e-05,
+     "p99": 5.593613001267409,
+     "p_ge_optimum": 0.063846,
+     "p_ge_ruin": 0.000246,
+     "plus1sd": 14.005617028991557,
+     "plus2sd": 45.00943644537754,
+     "start": 0.1
+    },
+    {
+     "lnsize_sd": 2.43076421092585,
+     "median": 0.5012798573986874,
+     "minus1sd": 0.04447172541706352,
+     "minus2sd": 0.0015695705813086125,
+     "p1": 0.00025778159620766376,
+     "p99": 7.409906243626203,
+     "p_ge_optimum": 0.163052,
+     "p_ge_ruin": 0.001552,
+     "plus1sd": 5.9773461566880455,
+     "plus2sd": 12.622034490913519,
+     "start": 0.5
+    },
+    {
+     "lnsize_sd": 2.322806041794969,
+     "median": 0.6947260167401446,
+     "minus1sd": 0.049156068660045134,
+     "minus2sd": 0.001744872198837171,
+     "p1": 0.0003973035910853412,
+     "p99": 7.842351420778381,
+     "p_ge_optimum": 0.19701,
+     "p_ge_ruin": 0.002376,
+     "plus1sd": 4.910528511932962,
+     "plus2sd": 9.728808155023163,
+     "start": 0.6931
+    },
+    {
+     "lnsize_sd": 2.1824680912619376,
+     "median": 1.0020553328323505,
+     "minus1sd": 0.057850227491833835,
+     "minus2sd": 0.002077334209917062,
+     "p1": 0.000682646553999219,
+     "p99": 8.383606427360982,
+     "p_ge_optimum": 0.24472,
+     "p_ge_ruin": 0.003826,
+     "plus1sd": 3.9309048981916086,
+     "plus2sd": 7.283963088967567,
+     "start": 1.0
+    },
+    {
+     "lnsize_sd": 2.021848178409114,
+     "median": 1.422465053038415,
+     "minus1sd": 0.07268916577306939,
+     "minus2sd": 0.0026685962439601664,
+     "p1": 0.0012459779362053263,
+     "p99": 8.985483506642405,
+     "p_ge_optimum": 0.303868,
+     "p_ge_ruin": 0.006503,
+     "plus1sd": 3.1858939761978946,
+     "plus2sd": 5.553262704282336,
+     "start": 1.42
+    },
+    {
+     "lnsize_sd": 1.5582598954423839,
+     "median": 2.933776418551456,
+     "minus1sd": 0.16353552304488506,
+     "minus2sd": 0.00724840767977619,
+     "p1": 0.0070257883708422526,
+     "p99": 10.717939046099751,
+     "p_ge_optimum": 0.500396,
+     "p_ge_ruin": 0.024697,
+     "plus1sd": 2.131763734689825,
+     "plus2sd": 3.281769546105044,
+     "start": 2.9307
+    },
+    {
+     "lnsize_sd": 1.0602086453621224,
+     "median": 5.003227686893599,
+     "minus1sd": 0.3619655592021797,
+     "minus2sd": 0.03283183408472736,
+     "p1": 0.05693305554378278,
+     "p99": 12.835294878118505,
+     "p_ge_optimum": 0.735508,
+     "p_ge_ruin": 0.090243,
+     "plus1sd": 1.672646311987255,
+     "plus2sd": 2.3470397593036725,
+     "start": 5.0
+    },
+    {
+     "lnsize_sd": 0.4546569693025264,
+     "median": 9.503249304030415,
+     "minus1sd": 0.6463078277433748,
+     "minus2sd": 0.29926171304299254,
+     "p1": 1.8419812388994121,
+     "p99": 17.34197813731066,
+     "p_ge_optimum": 0.97559,
+     "p_ge_ruin": 0.500399,
+     "plus1sd": 1.3547038645525926,
+     "plus2sd": 1.709671239231385,
+     "start": 9.499999999999998
+    },
+    {
+     "lnsize_sd": 0.17502485087085778,
+     "median": 20.00324954686351,
+     "minus1sd": 0.8318920931721953,
+     "minus2sd": 0.6641522928127804,
+     "p1": 12.169488349519627,
+     "p99": 27.842052960473126,
+     "p_ge_optimum": 1.0,
+     "p_ge_ruin": 0.99908,
+     "plus1sd": 1.1684879495477032,
+     "plus2sd": 1.337097576845741,
+     "start": 20.0
+    }
+   ],
+   "Exp1 C1": [
+    {
+     "lnsize_sd": 0.08214014637355846,
+     "median": 0.10000792942749642,
+     "minus1sd": 0.9212361003557311,
+     "minus2sd": 0.8488283903616224,
+     "p1": 0.08260748580231295,
+     "p99": 0.12108848480150089,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0856994004312226,
+     "plus2sd": 1.1788131843386442,
+     "start": 0.1
+    },
+    {
+     "lnsize_sd": 0.08214014637355846,
+     "median": 0.500039647137482,
+     "minus1sd": 0.921236100355731,
+     "minus2sd": 0.8488283903616224,
+     "p1": 0.4130374290115646,
+     "p99": 0.6054424240075044,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0856994004312226,
+     "plus2sd": 1.178813184338644,
+     "start": 0.5
+    },
+    {
+     "lnsize_sd": 0.08214014637355846,
+     "median": 0.6931549588619775,
+     "minus1sd": 0.9212361003557309,
+     "minus2sd": 0.8488283903616222,
+     "p1": 0.5725524840958308,
+     "p99": 0.8392642881592025,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0856994004312224,
+     "plus2sd": 1.1788131843386438,
+     "start": 0.6931
+    },
+    {
+     "lnsize_sd": 0.08214014637355846,
+     "median": 1.000079294274964,
+     "minus1sd": 0.9212361003557309,
+     "minus2sd": 0.8488283903616224,
+     "p1": 0.8260748580231292,
+     "p99": 1.2108848480150085,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0856994004312224,
+     "plus2sd": 1.178813184338644,
+     "start": 1.0
+    },
+    {
+     "lnsize_sd": 0.08214014637355846,
+     "median": 1.4201125978704487,
+     "minus1sd": 0.9212361003557309,
+     "minus2sd": 0.8488283903616224,
+     "p1": 1.1730262983928432,
+     "p99": 1.719456484181312,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0856994004312226,
+     "plus2sd": 1.178813184338644,
+     "start": 1.42
+    },
+    {
+     "lnsize_sd": 0.08214014637355846,
+     "median": 2.9309323877316364,
+     "minus1sd": 0.9212361003557309,
+     "minus2sd": 0.8488283903616222,
+     "p1": 2.4209775864083842,
+     "p99": 3.548740224077586,
+     "p_ge_optimum": 0.500324,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0856994004312226,
+     "plus2sd": 1.1788131843386438,
+     "start": 2.9307
+    },
+    {
+     "lnsize_sd": 0.08214014637355846,
+     "median": 5.000396471374819,
+     "minus1sd": 0.9212361003557309,
+     "minus2sd": 0.8488283903616222,
+     "p1": 4.130374290115644,
+     "p99": 6.0544242400750425,
+     "p_ge_optimum": 1.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0856994004312224,
+     "plus2sd": 1.1788131843386438,
+     "start": 5.0
+    },
+    {
+     "lnsize_sd": 0.08214014637355846,
+     "median": 9.500753295612157,
+     "minus1sd": 0.9212361003557308,
+     "minus2sd": 0.8488283903616222,
+     "p1": 7.847711151219726,
+     "p99": 11.503406056142579,
+     "p_ge_optimum": 1.0,
+     "p_ge_ruin": 0.500399,
+     "plus1sd": 1.0856994004312224,
+     "plus2sd": 1.1788131843386438,
+     "start": 9.499999999999998
+    },
+    {
+     "lnsize_sd": 0.08214014637355846,
+     "median": 20.00158588549928,
+     "minus1sd": 0.9212361003557308,
+     "minus2sd": 0.8488283903616222,
+     "p1": 16.52149716046258,
+     "p99": 24.21769696030017,
+     "p_ge_optimum": 1.0,
+     "p_ge_ruin": 1.0,
+     "plus1sd": 1.0856994004312224,
+     "plus2sd": 1.178813184338644,
+     "start": 20.0
+    }
+   ],
+   "Exp1 C2": [
+    {
+     "lnsize_sd": 0.07815647410405971,
+     "median": 0.10000754581947036,
+     "minus1sd": 0.924763924542952,
+     "minus2sd": 0.8550963929023839,
+     "p1": 0.08331033351912122,
+     "p99": 0.11986963155546349,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.081223008435736,
+     "plus2sd": 1.1687316837405732,
+     "start": 0.1
+    },
+    {
+     "lnsize_sd": 0.06462850691784965,
+     "median": 0.5000311993793453,
+     "minus1sd": 0.937036870829364,
+     "minus2sd": 0.8773523063469421,
+     "p1": 0.4291115356476289,
+     "p99": 0.5797134738128354,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0663280602116718,
+     "plus2sd": 1.1359854202471875,
+     "start": 0.5
+    },
+    {
+     "lnsize_sd": 0.05924908793644418,
+     "median": 0.6931396444809985,
+     "minus1sd": 0.9420336674026623,
+     "minus2sd": 0.8866091664397547,
+     "p1": 0.6021260902289743,
+     "p99": 0.7933411381293263,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0605325690984884,
+     "plus2sd": 1.1235453253181775,
+     "start": 0.6931
+    },
+    {
+     "lnsize_sd": 0.05192893270538128,
+     "median": 1.0000501222852396,
+     "minus1sd": 0.9489295436678348,
+     "minus2sd": 0.8995621455134555,
+     "p1": 0.8835317344711078,
+     "p99": 1.1251378320240026,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.052755959418591,
+     "plus2sd": 1.107087364804268,
+     "start": 1.0
+    },
+    {
+     "lnsize_sd": 0.043877732018993226,
+     "median": 1.420060125929617,
+     "minus1sd": 0.9566313450523887,
+     "minus2sd": 0.9142597712464642,
+     "p1": 1.2785689185261042,
+     "p99": 1.5683432989855153,
+     "p_ge_optimum": 0.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.044338302653996,
+     "plus2sd": 1.089544850776108,
+     "start": 1.42
+    },
+    {
+     "lnsize_sd": 0.0265447893363274,
+     "median": 2.9307750603412153,
+     "minus1sd": 0.9735601904343676,
+     "minus2sd": 0.9473026737807374,
+     "p1": 2.7508020400538666,
+     "p99": 3.1127149276392245,
+     "p_ge_optimum": 0.50021,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.026616016950764,
+     "plus2sd": 1.0533596537634673,
+     "start": 2.9307
+    },
+    {
+     "lnsize_sd": 0.016322025904869975,
+     "median": 5.000078756892888,
+     "minus1sd": 0.9837073984251743,
+     "minus2sd": 0.9674602053661573,
+     "p1": 4.810347746883011,
+     "p99": 5.1901772177052825,
+     "p_ge_optimum": 1.0,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 1.0163384776858606,
+     "plus2sd": 1.0326971120305293,
+     "start": 5.0
+    },
+    {
+     "lnsize_sd": 0.008646463470907991,
+     "median": 9.500079285196437,
+     "minus1sd": 0.991364997501487,
+     "minus2sd": 0.9827489564220169,
+     "p1": 9.308945877061944,
+     "p99": 9.691338335602325,
+     "p_ge_optimum": 1.0,
+     "p_ge_ruin": 0.500399,
+     "plus1sd": 1.0086545767985924,
+     "plus2sd": 1.0173154528511033,
+     "start": 9.499999999999998
+    },
+    {
+     "lnsize_sd": 0.004107088097897922,
+     "median": 20.00007929113113,
+     "minus1sd": 0.9958980538387283,
+     "minus2sd": 0.9918050877885501,
+     "p1": 19.80893011801306,
+     "p99": 20.191351371346407,
+     "p_ge_optimum": 1.0,
+     "p_ge_ruin": 1.0,
+     "plus1sd": 1.0041112193925577,
+     "plus2sd": 1.0082254078024329,
+     "start": 20.0
+    }
+   ],
+   "control": [
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 0.10007305650445861,
+     "minus1sd": 0.469725682803456,
+     "minus2sd": 0.22100750492610957,
+     "p1": 0.01720760666562596,
+     "p99": 0.5826469626680664,
+     "p_ge_optimum": 4e-06,
+     "p_ge_ruin": 0.0,
+     "plus1sd": 2.1325417976256453,
+     "plus2sd": 4.550222414400299,
+     "start": 0.1
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 0.5003652825222928,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 0.08603803332812979,
+     "p99": 2.9132348133403316,
+     "p_ge_optimum": 0.00978,
+     "p_ge_ruin": 5.2e-05,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 0.5
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 0.6936063546324024,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 0.11926592179945347,
+     "p99": 4.038326098252368,
+     "p_ge_optimum": 0.028404,
+     "p_ge_ruin": 0.000275,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 0.6931
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 1.0007305650445857,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 0.17207606665625955,
+     "p99": 5.826469626680662,
+     "p_ge_optimum": 0.077533,
+     "p_ge_ruin": 0.001434,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 1.0
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 1.4210374023633117,
+     "minus1sd": 0.46972568280345584,
+     "minus2sd": 0.22100750492610946,
+     "p1": 0.24434801465188855,
+     "p99": 8.27358686988654,
+     "p_ge_optimum": 0.169349,
+     "p_ge_ruin": 0.005937,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 1.42
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 2.932841066976167,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 0.5043033285494999,
+     "p99": 17.075634534913014,
+     "p_ge_optimum": 0.500392,
+     "p_ge_ruin": 0.059991,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400298,
+     "start": 2.9307
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 5.003652825222928,
+     "minus1sd": 0.46972568280345584,
+     "minus2sd": 0.22100750492610946,
+     "p1": 0.8603803332812977,
+     "p99": 29.13234813340331,
+     "p_ge_optimum": 0.760299,
+     "p_ge_ruin": 0.198685,
+     "plus1sd": 2.132541797625644,
+     "plus2sd": 4.550222414400297,
+     "start": 5.0
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 9.506940367923562,
+     "minus1sd": 0.4697256828034559,
+     "minus2sd": 0.22100750492610952,
+     "p1": 1.634722633234465,
+     "p99": 55.351461453466285,
+     "p_ge_optimum": 0.940207,
+     "p_ge_ruin": 0.500399,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400299,
+     "start": 9.499999999999998
+    },
+    {
+     "lnsize_sd": 0.7565387063044187,
+     "median": 20.014611300891715,
+     "minus1sd": 0.46972568280345584,
+     "minus2sd": 0.22100750492610946,
+     "p1": 3.441521333125191,
+     "p99": 116.5293925336132,
+     "p_ge_optimum": 0.994343,
+     "p_ge_ruin": 0.837684,
+     "plus1sd": 2.132541797625645,
+     "plus2sd": 4.550222414400297,
+     "start": 20.0
+    }
+   ]
+  },
+  "calibration": {
+   "control_lnsize_sd": 0.7560307767593046,
+   "control_multiplier_per_sd": 2.1298057465492577,
+   "control_ruin_probability_from_optimum": 0.059908333940161596,
+   "g_star": 2.930734253819811,
+   "ruin": 9.499999999999998,
+   "sigma": {
+    "C1m": 0.7560307767593046,
+    "C2-tail": 4.25833462855783,
+    "C2-up": 3.3640464706426885
+   },
+   "size_log_std": {
+    "C1m": -0.27967319363215337,
+    "C2-tail": 1.4488781515839206,
+    "C2-up": 1.2131445561183463
+   }
+  },
+  "method": "1,000,000 standard-normal draws (seed 0) on the size output around each starting size; size ratios are sampled / starting size. Control: u-noise exp(-2.5) on size = 10^(4u). Experiment 1 C1/C2 (unmatched) shown for reference."
+ },
+ "frozen": "S6 market mechanics, reward R1, death at 5%, margin 1:2000, simulator, costs, Q2.0 score, open trading principle; no exposure cap, no new penalty, no trading style; not combined with any other change.",
+ "frozen_code_sha256": {
+  "src/tradeworld/interface/actions.py": "644a7003e3136eadec025a73d04d2f8532a530485f751ca61bc67d2d052e0803",
+  "src/tradeworld/learning/checkpoint.py": "112d0bc826657798ad21fbf47af9ea30689037de3287ce86dc9c3f3cb38ebc5c",
+  "src/tradeworld/learning/continual.py": "ec6e5149814851b1d58d3b6b5c4ccaccbf183614194c5cd38df0d8096cfcd1da",
+  "src/tradeworld/learning/diagnosis.py": "5afa9ccfdaa026f1ac96829d23649ff4f324a27116ac9df3ae865336a1505022",
+  "src/tradeworld/learning/env.py": "aee641dd97bf7d5f6185b2d92d6e7d6429b4704542f17772dc14aab8ded1189e",
+  "src/tradeworld/learning/evaluate.py": "100a09bd1eca58fe9e6eb085395afe48bbbd1feb46dc21b0c4bf685a2fdc8da9",
+  "src/tradeworld/learning/history.py": "a9700c40394f951e80d24e4873b8dada9180336b994cc7b40a407977db244ff7",
+  "src/tradeworld/learning/phase3_analysis.py": "ded7df4f3402ad0e3440f3a954a0b3d72a3a8d0ec6675c16243419b44d3b8123",
+  "src/tradeworld/learning/phase3b.py": "6be92f4318ccfdc597a5172ebf57f1f60ec9c5c168677711bac08b37c73d7bac",
+  "src/tradeworld/learning/phase3b_analysis.py": "9902286c262adfc2dc1ffcfececda5f348ad0e55521027b0f5e95d3ceea0a597",
+  "src/tradeworld/learning/quality.py": "b71ddd6acdaaa0f420443c7a5de61d8cd8861bcf20a6a4ad789fc2710a325a52",
+  "src/tradeworld/learning/rewards.py": "eb4d1be83f338cf535bcf5c5e97a9b8f0724999ef86cd46f800dcb365204d8d5",
+  "src/tradeworld/learning/synthetic_tasks.py": "68950af5adfe20f704daadedf9b75aee35e5e69be5cf4fad067bfd6335793e47",
+  "src/tradeworld/learning/train.py": "be44bc798db2102689d083a1c263e2810abbad1b366c7a6916d10f2da16c3e9d",
+  "src/tradeworld/registry/datasets.py": "c627d8080a5f0835740827cdaf9702a99ddb166b7aa914cdecb3f11b7e0b778a",
+  "src/tradeworld/registry/registry.py": "c598054ac61a318eb687009683f8622da0b802e5d1c92ae8832cfd2e1a48089a"
+ },
+ "groups": {
+  "C1m": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "exp"
+   },
+   "config_sha256": "d26a79524c62c8a69834d041d259a1d0ebca2236a9cc24c736311980ca415362",
+   "description": "size = e^z, z in [-25, 25]; starting size-noise log std -0.2797 (sigma 0.7560): x2.13 per sd at every size, as the control",
+   "initial_settings": {
+    "size_log_std": -0.27967319363215337
+   }
+  },
+  "C2-tail": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "softplus"
+   },
+   "config_sha256": "a8551e3f57962042908a0314fe511299cb7f1f2a456139a802d88072a9045b54",
+   "description": "size = ln(1 + e^z), z in [-25, 10,000]; starting size-noise log std 1.4489 (sigma 4.2583): chance of exploring to >= 9.5x from the optimum = 6.0%, as the control",
+   "initial_settings": {
+    "size_log_std": 1.4488781515839206
+   }
+  },
+  "C2-up": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "softplus"
+   },
+   "config_sha256": "062489460079a83bfdf334c69d533c391f81582b2b737be3b9e6515cec5ffa86",
+   "description": "size = ln(1 + e^z), z in [-25, 10,000]; starting size-noise log std 1.2131 (sigma 3.3640): +1 sd at the optimum = x2.13, as the control",
+   "initial_settings": {
+    "size_log_std": 1.2131445561183463
+   }
+  }
+ },
+ "market": "S6",
+ "n_envs": 8,
+ "paired_seeds": true,
+ "planned_at": "2026-11-18T07:28:38Z",
+ "profile": "A_synthetic",
+ "references": {
+  "file": "registry-phase3/analyses/exp1-verdict/verdict.json",
+  "note": "Experiment 1 per-seed final results (control, C1, C2), read only; different evaluation data, Q2 depends only on the decisions",
+  "sha256": "f2dde0834c9df4868ab7d4801ff2affd17857f6eb14cecc272865fbb6b811a22"
+ },
+ "reward": "R1",
+ "rounds": {
+  "curve": {
+   "exp1b-curve-0500k": 20010,
+   "exp1b-curve-1000k": 20010,
+   "exp1b-curve-1500k": 20010,
+   "exp1b-curve-2000k": 20010,
+   "exp1b-curve-2500k": 20010,
+   "exp1b-curve-3000k": 20010
+  },
+  "exp1b-final-a": 20008,
+  "exp1b-final-b": 20009,
+  "exp1b-trainpaths": "each agent's own training seed"
+ },
+ "safeguard_verification": "Numerical size ranges: C1m z in [-25, 25] (sizes 1.4e-11x to 7.2e10x); C2 z in [-25, 10,000] (up to 10,000x, the same largest size as the existing representation). The margin rule (1:2000) is far below both. Verified by: (1) the share of sampled training actions outside the range (explore/size_clipped_share) and of mean actions within 5% of either end (explore/size_mean_near_bound_share), recorded at every update; (2) the share of evaluated decisions with the raw size output at its bound (criterion E, limit 0.1%); (3) tests that every size from 1e-4x to 10,000x is reachable and unclipped. Any non-zero training clipping is reported per agent.",
+ "seeds_per_group": 6,
+ "steps": 3000000,
+ "storage": {
+  "branch": "claude/phase3-exp1b-artifacts",
+  "checkpoint_every": 250000,
+  "estimate": "about 190 MB",
+  "note": "Permanent blobs of this registry live on the separate blobs-only branch above, checked out next to this repository (Git LFS is refused for this repository: public fork).",
+  "path": "../../../phase3-exp1b-artifacts/blobs",
+  "path_env": "TRADEWORLD_PHASE3B_BLOBS"
+ }
+}
