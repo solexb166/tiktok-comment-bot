@@ -1,0 +1,434 @@
+{
+ "agent_id": "ag-bd6d29722b",
+ "analysis_metrics": {
+  "Q2": {
+   "checksum": "0d0c6486487edacee4b54a34180d63855d77c413ab79e5bb15f27616aa292147",
+   "frozen": true,
+   "version": "Q2.0"
+  }
+ },
+ "checkpoint_sha256": "4568bf69c0f6de024c3cd74d32a656d4271c1079b0f2b6f4536e6216c562c471",
+ "criteria": {
+  "criteria_id": "0002-phase2-gate",
+  "files": {
+   "docs/decisions/0002-phase2-gate-criteria.md": "db0a2d086a8d838f2d2bab9531127f8a1e51759fc3b5482ad95e840beb85def2",
+   "src/tradeworld/learning/gate.py": "798fddf69365ca9d883014d934bec61c240c7804ca97e2a6a54dcdff7be1e281"
+  }
+ },
+ "decision_log_cache_sha256": "5413b1b21e4fa9675186c3a390dabaf47f17b2d014c4ae64d3f58bc48e1b2bea",
+ "decision_log_fingerprint": "786aea1cba84e089e6fc207d2ad122753ba818e0328f3ff56cd42c13768ec80f",
+ "decision_samples_sha256": "8c824167fb50e483f0ad973d830f081755a48095e6e4b000f7fca6d3749b8c5e",
+ "decisions": 18204,
+ "diagnosis": {
+  "metrics": {
+   "against_edge": 0.4117226983080642,
+   "aligned_with_edge": 0.5882773016919358,
+   "big_moves": 58,
+   "costs_per_episode": 2.7301919971529496,
+   "death_reasons": {
+    "equity_floor": 4
+   },
+   "deaths": 4,
+   "decisions": 18204,
+   "dq2": -0.7063259218440704,
+   "dq2_by_episode": [
+    -0.7466167645314905,
+    -0.7581209225240458,
+    -0.6070813651807913,
+    -0.6986283373852892,
+    -0.5440817324101686,
+    -0.7901454769930775,
+    -0.6831249612311118,
+    -0.6164650230236879,
+    -0.7055168054538503,
+    -0.6987567982563208,
+    -0.749974374481933,
+    -0.9182567006847262,
+    -0.4213831237057767,
+    -0.6091823036965546,
+    -0.7981369901273137,
+    -0.8833622485052536,
+    -0.8490518720644239,
+    -0.5057057942238298,
+    -0.8267927670928387,
+    -0.7161340753089231
+   ],
+   "dq2_floor": -21.35263730432163,
+   "dq2_version": "Q2.0",
+   "dq_episode_quality": -0.39879063715473606,
+   "dq_episode_quality_by_episode": [
+    -0.543036002676485,
+    -0.4418635559281435,
+    -0.42143064122150675,
+    -0.5782859916012711,
+    -0.3749333698221624,
+    -0.5499073018282515,
+    -0.46443213502320674,
+    -0.26886015747518793,
+    -0.4376139603209183,
+    -0.19233106189471902,
+    -0.27228938492432064,
+    -0.3391669650172487,
+    0.020248879835215748,
+    -0.5720366168507336,
+    -0.17873335395355844,
+    -0.5924951340516441,
+    -0.4351513330083563,
+    -0.39814592328291265,
+    -0.5804746626085336,
+    -0.35487407144077576
+   ],
+   "dq_optimal_growth_per_decision": 0.0002652323557661689,
+   "dq_optimal_size": 2.930734253819811,
+   "dq_quality": -0.021620661945250065,
+   "dq_ruin_size_long": 9.499999999999998,
+   "dq_ruin_size_short": 60.83434843492952,
+   "dq_ruinous_share": 0.03274005713030103,
+   "edge_known": true,
+   "episodes": 20,
+   "fatal_leverage": 9.016660501978347,
+   "flat_when_edge": 0.0,
+   "growth_optimal_leverage": 2.930734253819811,
+   "leverage_before_big_moves": 2.1049105644463286,
+   "leverage_elsewhere": 1.7136603578541618,
+   "long_share": 0.5882773016919358,
+   "losing_decisions": 8865,
+   "losses_on_sound_positions": 0.5249858996051889,
+   "max_leverage": 116.43612220756462,
+   "median_leverage": 0.34500139425753434,
+   "median_size_change": 5.395900518521759,
+   "p95_leverage": 6.929286996977632,
+   "share_over": {
+    "100x": 0.00027466490881125025,
+    "10x": 0.03120193364095803,
+    "1x": 0.2814765985497693,
+    "3x": 0.12019336409580313
+   },
+   "share_over_fatal": 0.03537684025488903,
+   "share_size_jumps_10x": 0.35806203255609326,
+   "size_after_loss_ratio": 0.03793602572198515,
+   "spike_ratio": 337.4946424728016,
+   "spikes": 1916,
+   "time_in_market": 1.0,
+   "trade_frequency": 0.9998901340364755,
+   "typical_move": 0.003007287456326808,
+   "worst_move": 0.10536051565782702
+  },
+  "observations": [
+   {
+    "after_fatal_leverage": 4,
+    "code": "deaths_after_excessive_leverage",
+    "deaths": 4,
+    "text": "4 of 20 test runs ended in account death. In 4 of them the position just before death was at or above 9.0x, the size at which the largest single move in this test data (11%) wipes out 95% of the account."
+   },
+   {
+    "code": "ruinous_decisions",
+    "share": 0.03274005713030103,
+    "text": "3% of decisions were ruinous: positions of 9.5x or more, where one ordinary crash in this market ends the account. Decision-quality score -0.02 on the other decisions (1 = optimal 2.93x, 0 = staying out); episode quality -0.40."
+   },
+   {
+    "code": "leverage_spikes",
+    "max_leverage": 116.43612220756462,
+    "spikes": 1916,
+    "text": "Leverage is usually around 0.35x but reached 116x; 1916 decisions used more than 10 times the agent's typical size."
+   },
+   {
+    "code": "against_the_edge",
+    "share": 0.4117226983080642,
+    "text": "41% of positions pointed against the market's known expected direction."
+   },
+   {
+    "code": "losses_on_sound_positions",
+    "share": 0.5249858996051889,
+    "text": "Of 8865 losing decisions, 52% were positioned in the expected direction: losses that came from market noise, not from the decision."
+   }
+  ],
+  "possible_explanations": [
+   {
+    "code": "leverage_not_risk_aware",
+    "text": "Possible: the agent has not learned that rare large moves make positions above ~9x fatal. Test: compare its leverage just before large moves with its leverage elsewhere, across versions."
+   },
+   {
+    "code": "exposure_output_unstable",
+    "text": "Possible: exposure is chosen on a log scale (0.0001x to 10,000x), so small shifts in the network's output move leverage by large factors. Test: measure how much leverage changes between consecutive decisions with near-identical observations."
+   }
+  ]
+ },
+ "episodes": [
+  {
+   "costs": 8.526818646406033,
+   "died": true,
+   "flag_agreement": null,
+   "log_growth": -2.9957322735540086,
+   "mean_gross": 1.5502013632813352,
+   "mean_net": 1.3059289987188403,
+   "steps": 392,
+   "turnover": 2.6793685790464354
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": -0.3333427901313643,
+   "mean_gross": 1.9363921517957434,
+   "mean_net": 1.6850255363016742,
+   "steps": 1000,
+   "turnover": 3.4950377334885725
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 1.2281015706217155,
+   "mean_gross": 1.6734968866178004,
+   "mean_net": 1.4579082124691265,
+   "steps": 1000,
+   "turnover": 2.854443198269557
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 0.3356974508486614,
+   "mean_gross": 1.7073959098285705,
+   "mean_net": 1.4756968389930025,
+   "steps": 1000,
+   "turnover": 3.022860214791622
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 0.3017907402449763,
+   "mean_gross": 1.7607138212295943,
+   "mean_net": 1.5163547794799785,
+   "steps": 1000,
+   "turnover": 3.0937852759562197
+  },
+  {
+   "costs": 14.639627634087734,
+   "died": true,
+   "flag_agreement": null,
+   "log_growth": -2.995732273554023,
+   "mean_gross": 1.952054526586994,
+   "mean_net": 1.7031456835198149,
+   "steps": 879,
+   "turnover": 3.4887649970417156
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": -0.7031844048284924,
+   "mean_gross": 1.6478175239632238,
+   "mean_net": 1.3844134265368726,
+   "steps": 1000,
+   "turnover": 2.905530641613302
+  },
+  {
+   "costs": 21.872816914233074,
+   "died": true,
+   "flag_agreement": null,
+   "log_growth": -2.9957322735540264,
+   "mean_gross": 1.7026747803403588,
+   "mean_net": 1.4875776107356224,
+   "steps": 895,
+   "turnover": 2.8986742089589455
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 0.04405601308989472,
+   "mean_gross": 1.812839174974135,
+   "mean_net": 1.5952347022399844,
+   "steps": 1000,
+   "turnover": 3.2116136299738973
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": -2.1294250236822783,
+   "mean_gross": 1.6173447253933833,
+   "mean_net": 1.2981152207864037,
+   "steps": 1000,
+   "turnover": 2.8741429346316876
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 0.026936465177136364,
+   "mean_gross": 1.6407610981711822,
+   "mean_net": 1.3996719904959964,
+   "steps": 1000,
+   "turnover": 2.9067262331375825
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 1.0676688116406243,
+   "mean_gross": 1.763800248880389,
+   "mean_net": 1.5567008397924251,
+   "steps": 1000,
+   "turnover": 3.1239627549814344
+  },
+  {
+   "costs": 9.564576748332147,
+   "died": true,
+   "flag_agreement": null,
+   "log_growth": -2.9957322735539944,
+   "mean_gross": 0.8943352933534456,
+   "mean_net": 0.6062674162764754,
+   "steps": 38,
+   "turnover": 1.4646866840483153
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 1.1064392166198365,
+   "mean_gross": 1.6063474042055332,
+   "mean_net": 1.38765368860912,
+   "steps": 1000,
+   "turnover": 2.6948166158518188
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 0.9747415707215742,
+   "mean_gross": 1.6732722314622106,
+   "mean_net": 1.488262803861314,
+   "steps": 1000,
+   "turnover": 2.8796271051561146
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 1.580424282703826,
+   "mean_gross": 1.817630617553739,
+   "mean_net": 1.608032590714932,
+   "steps": 1000,
+   "turnover": 3.172366006378772
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 1.3142390127158967,
+   "mean_gross": 1.8143330929551407,
+   "mean_net": 1.615963754755783,
+   "steps": 1000,
+   "turnover": 3.1517031595345553
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": -1.6431770738326505,
+   "mean_gross": 1.3354704813546063,
+   "mean_net": 1.0155564996743722,
+   "steps": 1000,
+   "turnover": 2.3388830562778087
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 0.027613120500257014,
+   "mean_gross": 1.7971416172801533,
+   "mean_net": 1.5738700449054366,
+   "steps": 1000,
+   "turnover": 3.1598385131837494
+  },
+  {
+   "costs": 0.0,
+   "died": false,
+   "flag_agreement": null,
+   "log_growth": 0.5304911261302374,
+   "mean_gross": 1.7346829493984168,
+   "mean_net": 1.5151468392211398,
+   "steps": 1000,
+   "turnover": 3.038449814143357
+  }
+ ],
+ "eval_id": "ag-bd6d29722b-v0001-exp1b-final-b",
+ "experiment": "phase3-exp1b",
+ "group": "C1m",
+ "null": null,
+ "purpose": "final",
+ "reason": "gross 1.67x (optimal ~2.9x), deaths 20%",
+ "recorded_at": "2026-11-18T09:48:48Z",
+ "reference_summary": null,
+ "result": "fail",
+ "round_id": "exp1b-final-b",
+ "sample_episodes": [
+  7,
+  8
+ ],
+ "summary": {
+  "agree": null,
+  "died": 0.2,
+  "gross": 1.6719352949312978,
+  "lg": -0.41269295028381003,
+  "net": 1.4338263739044155,
+  "null95": null,
+  "t": -1.1392267691802942,
+  "turnover": 2.922764067823273
+ },
+ "test_data": {
+  "data_hash": "0172f548fa68fb9a0aabbc31d007b9a3118dab22ec1cc8710f00db0b5c772a57",
+  "episode_reset_seeds": [
+   0,
+   1,
+   2,
+   3,
+   4,
+   5,
+   6,
+   7,
+   8,
+   9,
+   10,
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19
+  ],
+  "episode_starts": [
+   0,
+   3103,
+   6206,
+   9310,
+   12413,
+   15516,
+   18620,
+   21723,
+   24826,
+   27930,
+   31033,
+   34137,
+   37240,
+   40343,
+   43447,
+   46550,
+   49653,
+   52757,
+   55860,
+   58964
+  ],
+  "seed": 20009,
+  "task": "S6"
+ },
+ "test_steps": 60000,
+ "version": 1
+}
