@@ -96,3 +96,31 @@ def test_train_evaluate_and_regenerate(tmp_path, monkeypatch):
     e = ev.evaluate(reg, a, v["version"], "r1")
     reg.cache = LocalBlobStore(tmp_path / "fresh-cache")
     assert len(ev.decision_log(reg, e)) == e["decisions"]               # regenerated exactly from the stored model
+
+
+def test_curve_round_for_a_checkpoint_step():
+    """Amendment 0001: the last checkpoint learns from 199,967 bars; its curve round is the planned '200k' one."""
+    assert m2.curve_rid_for_step("S4", 199_967) == "m2-s4-curve-200k"
+    assert m2.curve_rid_for_step("S6", 20_000) == "m2-s6-curve-020k"
+    assert m2.curve_rid_for_step("S7", 60_000) == "m2-s7-curve-060k"
+
+
+def test_amendment_chain_controls_frozen_code(tmp_path, monkeypatch):
+    from tradeworld.registry.registry import RegistryError
+    from tradeworld.registry.store import write_once_json
+    reg = Registry(tmp_path / "reg")
+    e = m2.Experiment(reg)
+    real = m2.code_checksums()
+    f = m2.FROZEN_CODE[0]
+    write_once_json(e.dir / "manifest.json", dict(frozen_code_sha256=dict(real, **{f: "old"}), groups={}))
+    monkeypatch.setattr(m2, "groups", lambda: {})
+    with pytest.raises(RegistryError):
+        e.check_frozen()                                          # changed code without an amendment is refused
+    with pytest.raises(RegistryError):
+        e.amend("r", {f: "wrong"}, {}, "x")                       # must name the recorded earlier checksum
+    rec = e.amend("label fix", {f: "old"}, dict(evaluations=0), "labels only")
+    assert rec["number"] == 1 and rec["code_changes"][f] == dict(old_sha256="old", new_sha256=real[f])
+    e.check_frozen()                                              # now accepted
+    monkeypatch.setattr(m2, "code_checksums", lambda: dict(real, **{f: "later"}))
+    with pytest.raises(RegistryError):
+        e.check_frozen()                                          # a further change needs its own amendment

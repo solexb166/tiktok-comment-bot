@@ -78,6 +78,13 @@ def curve_rid(task: str, n: int) -> str:
     return rid(task, f"curve-{n // 1000:03d}k")
 
 
+def curve_rid_for_step(task: str, step: int) -> str:
+    """Amendment 0001: a checkpoint's learning-curve round is the planned data point nearest to its step. (The last
+    checkpoint learns from all 199,967 bars an agent's 200,000-bar market yields after the 30-bar window and the
+    one-bar-ahead target; the plan names that round '200k'.)"""
+    return curve_rid(task, min(DATA_POINTS, key=lambda dp: abs(dp - step)))
+
+
 class Experiment:
     def __init__(self, reg: Registry):
         self.reg = reg
@@ -93,9 +100,42 @@ class Experiment:
     def _log(self, kind: str, **data) -> None:
         append_jsonl(self.progress_path, dict(kind=kind, at=now_utc(), **data))
 
+    def amendments(self) -> list[dict]:
+        """Recorded protocol amendments (write-once, numbered, applied in order)."""
+        d = self.dir / "amendments"
+        return [read_json(p) for p in sorted(d.glob("[0-9][0-9][0-9][0-9].json"))] if d.exists() else []
+
+    def frozen_code(self) -> dict:
+        """The frozen code checksums: those of the manifest, as changed by each recorded amendment in turn. An
+        amendment must name the checksums it replaces, so the chain cannot skip or rewrite a step."""
+        frozen = dict(self.manifest()["frozen_code_sha256"])
+        for a in self.amendments():
+            for f, ch in a["code_changes"].items():
+                if frozen.get(f) != ch["old_sha256"]:
+                    raise RegistryError(f"amendment {a['number']} does not follow the recorded checksum of {f}")
+                frozen[f] = ch["new_sha256"]
+        return frozen
+
+    def amend(self, reason: str, changed: dict[str, str], state: dict, effect: str) -> dict:
+        """Record an amendment. `changed` maps each changed frozen file to its checksum before the change."""
+        frozen, now = self.frozen_code(), code_checksums()
+        for f, old in changed.items():
+            if frozen.get(f) != old:
+                raise RegistryError(f"{f}: the stated earlier checksum is not the recorded one")
+        unexplained = [f for f, h in now.items() if frozen.get(f) != h and f not in changed]
+        if unexplained:
+            raise RegistryError(f"frozen code changed without being named in the amendment: {unexplained}")
+        n = len(self.amendments()) + 1
+        rec = dict(number=n, at=now_utc(), experiment=EXPERIMENT_ID, reason=reason, effect=effect, state_when_made=state,
+                   code_changes={f: dict(old_sha256=old, new_sha256=now[f]) for f, old in changed.items()})
+        write_once_json(self.dir / "amendments" / f"{n:04d}.json", rec)
+        self._log("amendment", number=n, reason=reason)
+        return rec
+
     def check_frozen(self) -> None:
         m = self.manifest()
-        bad = [f for f, h in code_checksums().items() if m["frozen_code_sha256"].get(f) != h]
+        frozen = self.frozen_code()
+        bad = [f for f, h in code_checksums().items() if frozen.get(f) != h]
         if bad:
             raise RegistryError(f"frozen code changed after pre-registration: {bad}")
         for g, cfg in groups().items():
@@ -209,7 +249,7 @@ class Experiment:
             t = a["task"]
             items = [(r, None, "final") for r in final_rids(t)] + [(rid(t, "trainpaths"), None, "trainpaths")]
             for c in v["checkpoints"] + [v["final_checkpoint"]]:
-                items.append((curve_rid(t, c["step"]), c["model_sha256"], f"curve {c['step']}"))
+                items.append((curve_rid_for_step(t, c["step"]), c["model_sha256"], f"curve {c['step']}"))
             jobs += [dict(key=key, agent_id=a["agent_id"], group=a["group"], version=v["version"], round_id=r,
                           checkpoint=sha, purpose=pu) for r, sha, pu in items if (r, v["version"]) not in done]
         for t, b in m["benchmarks"].items():
@@ -387,6 +427,9 @@ def report(exp: Experiment, res: dict, protection: dict | None = None) -> str:
          "is given to it. Final checkpoints only; six fresh rounds of 20 runs (120 runs per agent). Benchmarks hold the exact "
          "growth-optimal size on the same runs.\n",
          f"**M2 passes (all three markets): {'YES' if V['M2_passes'] else 'NO'}**\n"]
+    for a in exp.amendments():
+        L.append(f"**Protocol amendment {a['number']:04d}** ({a['at']}; recorded before any result was analysed): {a['reason']} "
+                 f"Effect: {a['effect']} State when made: " + ", ".join(f"{k} {v}" for k, v in a["state_when_made"].items()) + ".\n")
     for g, title in (("MK2-S6", "S6: drift plus rare crashes (optimal 2.93x)"), ("MK2-S7", "S7: drift, no crashes (optimal 5x)"),
                      ("MK2-S4", "S4: no edge (right behaviour: claim none)")):
         r = V[g]
