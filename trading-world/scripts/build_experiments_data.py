@@ -158,7 +158,15 @@ def main():
     else:
         ok = all(m3[g]["passes"] for g in ("MK3-S1C", "MK3-S2C", "MK3-S3"))
         st5 = "passed" if ok else "failed"
-        ev5 = "M3: " + "; ".join(f"{m3[g]['market']} {m3[g]['successes']}/6 agents succeeded" for g in ("MK3-S1C", "MK3-S2C", "MK3-S3", "MK3-S6"))
+        v3 = json.loads((base / next(e[2] for e in EXPERIMENTS if e[0] == "m3")).read_text())["verdicts"]
+        a1, a2 = v3["MK3-S1C"].get("ablation", {}), v3["MK3-S2C"].get("ablation", {})
+        r2 = v3["MK3-S2C"]
+        ev5 = ("M3: " + "; ".join(f"{m3[g]['market']} {m3[g]['successes']}/6 agents succeeded" for g in ("MK3-S1C", "MK3-S2C", "MK3-S3", "MK3-S6"))
+               + f". Weighing costs is what made the difference: the same learned models trading as if costs were free earned "
+               f"{a1.get('growth_mean', float('nan')):+.1f} per run in S1C ({a1.get('deaths_total', '?')} deaths in 720 runs) against "
+               f"{v3['MK3-S1C']['growth_mean']:+.1f} with costs weighed. Caveat: in S2C the agents earned "
+               f"{100 * r2['growth_mean'] / r2['reference']['growth']:.0f}% of the true-parameter reference but died more often "
+               f"({r2['deaths_total']} in 720 runs, against the reference's {r2['reference']['deaths']} in 120).")
     roadmap = [
         dict(order=1, stage="Learning machinery and practice markets with known right answers", status="passed",
              evidence="Phase 2 gate, agent registry, decision replays (all below)"),
