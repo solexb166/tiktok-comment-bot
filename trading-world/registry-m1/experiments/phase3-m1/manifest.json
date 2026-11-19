@@ -1,0 +1,262 @@
+{
+ "agents": {
+  "MK-S6-s1": {
+   "agent_id": "ag-36e975d83e",
+   "group": "MK-S6",
+   "seed": 1060,
+   "seed_index": 1,
+   "task": "S6"
+  },
+  "MK-S6-s2": {
+   "agent_id": "ag-f7d8e2e78c",
+   "group": "MK-S6",
+   "seed": 1061,
+   "seed_index": 2,
+   "task": "S6"
+  },
+  "MK-S6-s3": {
+   "agent_id": "ag-948c641374",
+   "group": "MK-S6",
+   "seed": 1062,
+   "seed_index": 3,
+   "task": "S6"
+  },
+  "MK-S6-s4": {
+   "agent_id": "ag-b64e1decee",
+   "group": "MK-S6",
+   "seed": 1063,
+   "seed_index": 4,
+   "task": "S6"
+  },
+  "MK-S6-s5": {
+   "agent_id": "ag-5e2b8d4a0c",
+   "group": "MK-S6",
+   "seed": 1064,
+   "seed_index": 5,
+   "task": "S6"
+  },
+  "MK-S6-s6": {
+   "agent_id": "ag-0bccfab57c",
+   "group": "MK-S6",
+   "seed": 1065,
+   "seed_index": 6,
+   "task": "S6"
+  },
+  "MK-S7-s1": {
+   "agent_id": "ag-adfd7cc212",
+   "group": "MK-S7",
+   "seed": 1000,
+   "seed_index": 1,
+   "task": "S7"
+  },
+  "MK-S7-s2": {
+   "agent_id": "ag-6e6c4595c6",
+   "group": "MK-S7",
+   "seed": 1001,
+   "seed_index": 2,
+   "task": "S7"
+  },
+  "MK-S7-s3": {
+   "agent_id": "ag-2f457f8d79",
+   "group": "MK-S7",
+   "seed": 1002,
+   "seed_index": 3,
+   "task": "S7"
+  },
+  "MK-S7-s4": {
+   "agent_id": "ag-f0bfd525f4",
+   "group": "MK-S7",
+   "seed": 1003,
+   "seed_index": 4,
+   "task": "S7"
+  },
+  "MK-S7-s5": {
+   "agent_id": "ag-301f092d24",
+   "group": "MK-S7",
+   "seed": 1004,
+   "seed_index": 5,
+   "task": "S7"
+  },
+  "MK-S7-s6": {
+   "agent_id": "ag-c112cb0b98",
+   "group": "MK-S7",
+   "seed": 1005,
+   "seed_index": 6,
+   "task": "S7"
+  }
+ },
+ "analysis": {
+  "criteria": [
+   "Experiment M1: the pre-registered analysis (frozen by checksum in the manifest before any training).",
+   "Agents: model-based growth-optimal agents (model_kelly), six seeds per market, each judged on its FINAL",
+   "checkpoint (after 200,000 bars of experience) on two fresh rounds of 20 test runs (40 runs).",
+   "S6 (group MK-S6): a seed is a successful growth agent only if the approved Experiment 1b criteria hold:",
+   "W1 ruinous decisions < 1%; W2 at most 1 death in 40 test runs; W3 median size within x2 of G* (1.47-5.86x);",
+   "W4 Q2.0 >= 0.50; W5 growth above zero with 95% CI above zero and above the matched-random 95th percentile in",
+   "both rounds; W6 previous-move tilt < 1.5; E exploitation checks clear;",
+   "W7' (replaces W7, which measures PPO training episodes this agent does not have) learning from experience:",
+   "on the development round, Q2 after 200,000 bars of experience is higher than after 20,000 bars, and the",
+   "final ruinous share is below 1%.",
+   "The group supports safe growth if at least 4 of 6 seeds meet every criterion.",
+   "Interpretation, in this order: \"safe growth\"; \"still enters the ruin zone\" (ruinous >= 1% in >= 3 seeds);",
+   "\"safe but timid (learning problem)\" (W1 in >= 4 seeds and W3 in <= 2); otherwise \"mixed\".",
+   "Planned comparisons on Q2, ruinous share and distance |ln(median / G*)|, against the R-FL R1 control and the",
+   "Experiment 1 control (historical references, different test data; Q2 depends only on decisions): exact",
+   "two-sided permutation tests across seeds (924 relabellings), Holm-corrected over the 6 comparisons.",
+   "S7 (group MK-S7, generality check; Q2 is provisional for S7 and is NOT used): a seed succeeds if W1, W2, W3",
+   "(median within x2 of S7's G* = 5x), W5, W6, E and W7'' hold, W7'' being: on the development round the",
+   "distance |ln(median / G*)| after 200,000 bars is smaller than after 20,000 bars, and final ruinous < 1%.",
+   "The group passes if at least 4 of 6 seeds succeed."
+  ],
+  "file": "src/tradeworld/learning/m1_analysis.py"
+ },
+ "approval_conditions": [
+  "2026-11-19: the owner gave full control of the project to pursue its aim (autonomous agents that discover profitable opportunities, size positions intelligently and learn from experience) without further approvals.",
+  "Motivation: Experiments 1, 1b and R-FL showed that the model-free PPO learner grows a persistent, noise-driven spread of position sizes whose tail is ruinous, and that rare crashes reach it only as clipped single-state samples. A model-based agent learns the market's return distribution (including rare crashes) from all experienced bars at once and sizes by the same objective as R1 (expected log growth). An offline prototype (S6, one path) learned the crash frequency 0.00334 (true 0.00333) and sized 2.05-2.34x with no ruinous decisions (Q2 0.92).",
+  "Kept: all earlier agents, versions, checkpoints, registries, evaluations, rewards and scoring rules untouched; nothing about the market given to the agent; no exposure caps, no penalties, no trading style; criteria and code frozen by checksum before training; final checkpoints only; every seed reported."
+ ],
+ "compute": {
+  "agents": 12,
+  "estimate": "about 10 minutes of training and 30 minutes of evaluation on 4 cores"
+ },
+ "data_points": [
+  20000,
+  60000,
+  200000
+ ],
+ "decision_quality": {
+  "checksum": "0d0c6486487edacee4b54a34180d63855d77c413ab79e5bb15f27616aa292147",
+  "definition": "Per decision with net exposure G (position value / equity): s(G) = max(g(G) / g(G*), F), and s(G) = F for a ruinous decision. g(G) = (1 - p) E_Z[ln(1 + G (e^(m + sigma Z) - 1))] + p ln(1 - G J) is the exact expected log growth of holding G for one decision (96-point Gauss-Hermite quadrature; minus infinity if G >= 1/J). G* = argmax g. F = g(G_ruin) / g(G*), the score of the smallest ruinous long position (G_ruin = 0.95 / J in S6; for a market without crashes, the size at which a 5-sigma fall reaches the 5% death line). Ruinous: G >= G_ruin long, or |G| >= 0.95 / (e^(m + 5 sigma) - 1) short. Q2 of an episode = mean of s over its decisions; Q2 of an evaluation = mean of the episode values. Uses only the decisions and the market's known parameters, never realised returns.",
+  "frozen": true,
+  "note": "exact for S6; provisional for S7 (reported only)",
+  "version": "Q2.0"
+ },
+ "env_settings": {
+  "decision_interval": 1,
+  "obs_resolution": 1,
+  "window": 30
+ },
+ "episode_decisions": 1000,
+ "evaluated_checkpoint": "each agent's final checkpoint (200,000 bars; no selection)",
+ "experiment_id": "phase3-m1",
+ "frozen": "market mechanics, R1-R6, scoring rules, simulator, margin, death rule, Q2.0; no exposure cap, no penalty, no trading style; nothing about the market is given to the agent.",
+ "frozen_code_sha256": {
+  "src/tradeworld/interface/actions.py": "644a7003e3136eadec025a73d04d2f8532a530485f751ca61bc67d2d052e0803",
+  "src/tradeworld/learning/diagnosis.py": "5afa9ccfdaa026f1ac96829d23649ff4f324a27116ac9df3ae865336a1505022",
+  "src/tradeworld/learning/env.py": "aee641dd97bf7d5f6185b2d92d6e7d6429b4704542f17772dc14aab8ded1189e",
+  "src/tradeworld/learning/evaluate.py": "75e735db3ac7ad6ac4d2dcae54d8031fab40944e59875296fd52dfa20a50f1cb",
+  "src/tradeworld/learning/gate.py": "798fddf69365ca9d883014d934bec61c240c7804ca97e2a6a54dcdff7be1e281",
+  "src/tradeworld/learning/m1.py": "d576ff63d3016ba197d68bc981030fe24cb6a249dda7a753c30be64b59d3b72f",
+  "src/tradeworld/learning/m1_analysis.py": "47a415606e22c75b1a18fc829db56cbb41fd094e320a6e2ed7566463a21c8d42",
+  "src/tradeworld/learning/model_kelly.py": "7337c0d409cc017f98875d1dd3b272b3dd49d410900d65c3dbd0934cef98bbfb",
+  "src/tradeworld/learning/phase3_analysis.py": "ded7df4f3402ad0e3440f3a954a0b3d72a3a8d0ec6675c16243419b44d3b8123",
+  "src/tradeworld/learning/phase3b_analysis.py": "9902286c262adfc2dc1ffcfececda5f348ad0e55521027b0f5e95d3ceea0a597",
+  "src/tradeworld/learning/quality.py": "b71ddd6acdaaa0f420443c7a5de61d8cd8861bcf20a6a4ad789fc2710a325a52",
+  "src/tradeworld/learning/synthetic_tasks.py": "68950af5adfe20f704daadedf9b75aee35e5e69be5cf4fad067bfd6335793e47",
+  "src/tradeworld/registry/datasets.py": "c627d8080a5f0835740827cdaf9702a99ddb166b7aa914cdecb3f11b7e0b778a",
+  "src/tradeworld/registry/registry.py": "c598054ac61a318eb687009683f8622da0b802e5d1c92ae8832cfd2e1a48089a"
+ },
+ "groups": {
+  "MK-S6": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "log10"
+   },
+   "agent_type": "model-kelly",
+   "config_sha256": "686b3bba94fab4b3ff24f4b89caaab83f0e87b72cbb8e12cbf2f8af7de6e065c",
+   "data_points": [
+    20000,
+    60000,
+    200000
+   ],
+   "description": "model-based growth-optimal agent on S6 (crashes)",
+   "model_config": {
+    "batch": 1024,
+    "bisection_iters": 80,
+    "components": 5,
+    "hidden": 64,
+    "lr": 0.001,
+    "max_abs_size": 2000.0,
+    "max_epochs": 100,
+    "patience": 8,
+    "quad_nodes": 32,
+    "val_frac": 0.2,
+    "weight_decay": 1e-05
+   },
+   "reward": "R1",
+   "task": "S6"
+  },
+  "MK-S7": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "log10"
+   },
+   "agent_type": "model-kelly",
+   "config_sha256": "9705072c31b32e36118946d975aa4f40222ea3e62bd2944216751a341ec66f3d",
+   "data_points": [
+    20000,
+    60000,
+    200000
+   ],
+   "description": "model-based growth-optimal agent on S7 (no crashes)",
+   "model_config": {
+    "batch": 1024,
+    "bisection_iters": 80,
+    "components": 5,
+    "hidden": 64,
+    "lr": 0.001,
+    "max_abs_size": 2000.0,
+    "max_epochs": 100,
+    "patience": 8,
+    "quad_nodes": 32,
+    "val_frac": 0.2,
+    "weight_decay": 1e-05
+   },
+   "reward": "R1",
+   "task": "S7"
+  }
+ },
+ "planned_at": "2026-11-19T11:11:28Z",
+ "profile": "A_synthetic",
+ "references": {
+  "exp1": {
+   "file": "registry-phase3/analyses/exp1-verdict/verdict.json",
+   "sha256": "f2dde0834c9df4868ab7d4801ff2affd17857f6eb14cecc272865fbb6b811a22"
+  },
+  "rfl": {
+   "file": "registry-rfl/analyses/rfl-verdict/verdict.json",
+   "sha256": "affafb90aa7144b3a7b265779e6b299979a2cd5a1edf612b30487a585273299d"
+  }
+ },
+ "rounds": {
+  "m1-s6-curve": {
+   "m1-s6-curve-020k": 20016,
+   "m1-s6-curve-060k": 20016,
+   "m1-s6-curve-200k": 20016
+  },
+  "m1-s6-final-a": 20014,
+  "m1-s6-final-b": 20015,
+  "m1-s6-trainpaths": "each agent's own training seed",
+  "m1-s7-curve": {
+   "m1-s7-curve-020k": 20002,
+   "m1-s7-curve-060k": 20002,
+   "m1-s7-curve-200k": 20002
+  },
+  "m1-s7-final-a": 20000,
+  "m1-s7-final-b": 20001,
+  "m1-s7-trainpaths": "each agent's own training seed"
+ },
+ "seeds_per_group": 6,
+ "storage": {
+  "branch": "claude/phase3-m1-artifacts",
+  "estimate": "a few MB (12 agents x 3 small world models)",
+  "note": "Permanent blobs of this registry live on the separate blobs-only branch above, checked out next to this repository (Git LFS is refused for this repository: public fork).",
+  "path": "../../../phase3-m1-artifacts/blobs",
+  "path_env": "TRADEWORLD_M1_BLOBS"
+ },
+ "train_data_bars": 200000
+}
