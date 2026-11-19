@@ -7,6 +7,11 @@ R2  linear equity change (negative control)  (E1 - E0') / E0
 R3  R1 minus lambda * increase in log-drawdown
 R4  differential Sharpe ratio (Moody & Saffell 1998) on simple per-step returns
 R5  sparse terminal log-wealth                0 until the episode ends, then log(max(E_T, eps*E0) / E0)
+R6  full-liability log return (proposal 0007; new agents only). With M = E1 / E0' the one-bar equity
+    multiplier: ln M for M >= c; below c (a one-bar loss deeper than 1 - c, including losses beyond the
+    account, M <= 0, which environment A keeps as a negative balance) the tangent line of ln at c:
+    ln c + (M - c) / c. "R6" uses c = 0.01 (R1's own floor: identical to R1 on every bar that does not
+    end the account); "R6-c0.05" uses c = 0.05. R1-R5 are unchanged.
 """
 from __future__ import annotations
 
@@ -95,8 +100,32 @@ class SparseTerminal(Reward):
         return math.log(self._floor(e_now, self.eps) / self.e0) if done else 0.0
 
 
+class FullLiabilityLog(Reward):
+    name = "R6"
+
+    def __init__(self, c: float = 0.01):
+        if not 0 < c < 1:
+            raise ValueError("c must be in (0, 1)")
+        self.c = c
+
+    def __call__(self, e_prev, e_now, done):
+        if e_prev <= 0:
+            raise ValueError("full-liability reward needs positive equity before the bar")
+        m = e_now / e_prev
+        if m >= self.c:
+            return math.log(m)
+        return math.log(self.c) + (m - self.c) / self.c
+
+
+class FullLiabilityLogC05(FullLiabilityLog):
+    name = "R6-c0.05"
+
+    def __init__(self, c: float = 0.05):
+        super().__init__(c)
+
+
 REWARDS = {"R1": LogWealth, "R2": Linear, "R3": LogWealthDrawdown, "R4": DifferentialSharpe,
-           "R5": SparseTerminal}
+           "R5": SparseTerminal, "R6": FullLiabilityLog, "R6-c0.05": FullLiabilityLogC05}
 
 
 def make_reward(name: str, **kwargs) -> Reward:
