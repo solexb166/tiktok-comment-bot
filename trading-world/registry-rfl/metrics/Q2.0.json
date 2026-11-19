@@ -1,0 +1,18 @@
+{
+ "approved_by": "Project owner, chat approval 2026-11-17 (conditional on correct mathematics)",
+ "checksum": "0d0c6486487edacee4b54a34180d63855d77c413ab79e5bb15f27616aa292147",
+ "definition": "Per decision with net exposure G (position value / equity): s(G) = max(g(G) / g(G*), F), and s(G) = F for a ruinous decision. g(G) = (1 - p) E_Z[ln(1 + G (e^(m + sigma Z) - 1))] + p ln(1 - G J) is the exact expected log growth of holding G for one decision (96-point Gauss-Hermite quadrature; minus infinity if G >= 1/J). G* = argmax g. F = g(G_ruin) / g(G*), the score of the smallest ruinous long position (G_ruin = 0.95 / J in S6; for a market without crashes, the size at which a 5-sigma fall reaches the 5% death line). Ruinous: G >= G_ruin long, or |G| >= 0.95 / (e^(m + 5 sigma) - 1) short. Q2 of an episode = mean of s over its decisions; Q2 of an evaluation = mean of the episode values. Uses only the decisions and the market's known parameters, never realised returns.",
+ "frozen_at": "2026-11-17T11:17:20Z",
+ "history": [
+  "q0 per-decision score with a one-step death floor: rejected (rises again above 10x)",
+  "Q1 episode replay on simulated paths with permanent death: rejected (scored 20x above 10x)",
+  "Q2.0 clamped Kelly score: frozen"
+ ],
+ "metric": "decision-quality",
+ "note": "Independent verification passed 36 of 36 checks before freezing: reports/phase25/q2_math_verification.md",
+ "scope": [
+  "S6"
+ ],
+ "scope_note": "Exact for S6 (verified: reports/phase25/q2_math_verification.md). Not frozen for S7, where the quadrature tail cap affects longs from about 5.9x; S7 values are provisional.",
+ "version": "Q2.0"
+}

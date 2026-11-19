@@ -1,0 +1,300 @@
+{
+ "agents": {
+  "R1-s1": {
+   "agent_id": "ag-ef2fc03643",
+   "group": "R1",
+   "seed": 1054,
+   "seed_index": 1
+  },
+  "R1-s2": {
+   "agent_id": "ag-2dfd993fa3",
+   "group": "R1",
+   "seed": 1055,
+   "seed_index": 2
+  },
+  "R1-s3": {
+   "agent_id": "ag-1a12b8b837",
+   "group": "R1",
+   "seed": 1056,
+   "seed_index": 3
+  },
+  "R1-s4": {
+   "agent_id": "ag-04ee4dd2da",
+   "group": "R1",
+   "seed": 1057,
+   "seed_index": 4
+  },
+  "R1-s5": {
+   "agent_id": "ag-9717099bda",
+   "group": "R1",
+   "seed": 1058,
+   "seed_index": 5
+  },
+  "R1-s6": {
+   "agent_id": "ag-0d84ae56a4",
+   "group": "R1",
+   "seed": 1059,
+   "seed_index": 6
+  },
+  "R6-c0.05-s1": {
+   "agent_id": "ag-53d43d305c",
+   "group": "R6-c0.05",
+   "seed": 1054,
+   "seed_index": 1
+  },
+  "R6-c0.05-s2": {
+   "agent_id": "ag-a6204a4440",
+   "group": "R6-c0.05",
+   "seed": 1055,
+   "seed_index": 2
+  },
+  "R6-c0.05-s3": {
+   "agent_id": "ag-cd7284be94",
+   "group": "R6-c0.05",
+   "seed": 1056,
+   "seed_index": 3
+  },
+  "R6-c0.05-s4": {
+   "agent_id": "ag-2932141bf6",
+   "group": "R6-c0.05",
+   "seed": 1057,
+   "seed_index": 4
+  },
+  "R6-c0.05-s5": {
+   "agent_id": "ag-8ae0b79eda",
+   "group": "R6-c0.05",
+   "seed": 1058,
+   "seed_index": 5
+  },
+  "R6-c0.05-s6": {
+   "agent_id": "ag-a8981842f9",
+   "group": "R6-c0.05",
+   "seed": 1059,
+   "seed_index": 6
+  },
+  "R6-s1": {
+   "agent_id": "ag-ba79275e1c",
+   "group": "R6",
+   "seed": 1054,
+   "seed_index": 1
+  },
+  "R6-s2": {
+   "agent_id": "ag-8c8ffdfdb3",
+   "group": "R6",
+   "seed": 1055,
+   "seed_index": 2
+  },
+  "R6-s3": {
+   "agent_id": "ag-d2f0125b5b",
+   "group": "R6",
+   "seed": 1056,
+   "seed_index": 3
+  },
+  "R6-s4": {
+   "agent_id": "ag-7b163db4eb",
+   "group": "R6",
+   "seed": 1057,
+   "seed_index": 4
+  },
+  "R6-s5": {
+   "agent_id": "ag-d78ae24739",
+   "group": "R6",
+   "seed": 1058,
+   "seed_index": 5
+  },
+  "R6-s6": {
+   "agent_id": "ag-f118ef4949",
+   "group": "R6",
+   "seed": 1059,
+   "seed_index": 6
+  }
+ },
+ "analysis": {
+  "criteria": [
+   "Experiment R-FL: the pre-registered analysis (proposal 0007, section 11).",
+   "Frozen before any R-FL agent is trained: the manifest records this file's SHA-256 and those of every",
+   "file it relies on; the report refuses to run if any changed.",
+   "Groups: R1 (current reward, concurrent control), R6 (full-liability log, c = 0.01: primary) and",
+   "R6-c0.05 (sensitivity). Everything else as the Experiment 1 control (original size output and exploration,",
+   "PPO defaults, 3M steps). Six paired seeds (the same fresh training seed for a seed index in every group).",
+   "Each agent is judged on its FINAL checkpoint only, on two fresh rounds of 20 test runs.",
+   "Per-seed success: the approved Experiment 1b criteria W1-W7 and E, unchanged (phase3b_analysis.seed_flags).",
+   "A group supports safe growth if at least 4 of its 6 seeds meet every criterion.",
+   "Additional pre-registered checks for unintended incentives (each R6 group against the concurrent R1 control):",
+   "T  timidity: per seed, the median size of NON-ruinous decisions; the ratio of group mean to control mean,",
+   "with a 95% bootstrap interval across seeds; the check fails if the interval's lower bound is below 0.75",
+   "(a fall of more than 25% cannot be excluded)",
+   "GR gambling to recover: per seed, mean size of decisions that follow a bar on which equity fell more than",
+   "20% divided by mean size elsewhere; the check fails if the group median exceeds 1.5 (not measurable if",
+   "fewer than 10 such decisions in the whole group)",
+   "ST training stability: every agent completes; no non-finite training loss; median explained variance and",
+   "value loss over the last 20% of updates reported against the control",
+   "Planned comparisons with the control on Q2, ruinous share and distance |ln(median size / G*)|: exact two-sided",
+   "permutation tests across seeds (924 relabellings), Holm-corrected over the 6 comparisons, bootstrap intervals.",
+   "Interpretation (fixed in advance, per group, checked in this order):",
+   "\"safe growth\"                        the group supports safe growth",
+   "\"still enters the ruin zone\"         ruinous share >= 1% in at least 3 of 6 seeds",
+   "\"safe but timid (learning problem)\"  W1 met in at least 4 seeds and W3 in at most 2",
+   "\"mixed\"                              anything else",
+   "The truncation of R1 is reported as confirmed as a cause only if R6 is \"safe growth\" and the R1 control is not."
+  ],
+  "file": "src/tradeworld/learning/rfl_analysis.py",
+  "success_criteria": [
+   "Phase 3 Experiment 1b: the pre-registered analysis (approved by the owner 2026-11-18).",
+   "Frozen before any Experiment 1b agent is trained: the manifest records this file's SHA-256 (and",
+   "those of every file it relies on); the report refuses to run if any of them changed.",
+   "Groups: C1m (size = e^z), C2-up and C2-tail (size = softplus(z)), with starting exploration noise",
+   "matched to the control in actual position-size terms (see the manifest). Six seed indices; the same",
+   "fresh training seed for a given index in every group (paired). Each agent is judged on its FINAL",
+   "checkpoint only, on two fresh evaluation rounds of 20 test runs (40 runs).",
+   "A seed is a SUCCESSFUL GROWTH AGENT only if all hold:",
+   "W1  ruinous decisions below 1%",
+   "W2  at most 1 death in the 40 test runs",
+   "W3  median position size within x2 of the growth-optimal size (1.47x to 5.86x)",
+   "W4  decision quality Q2.0 at least 0.50",
+   "W5  mean log growth per run above zero with its 95% bootstrap interval above zero, and in each",
+   "round above the 95th percentile of ten leverage- and turnover-matched random agents",
+   "W6  previous-move tilt below 1.5 (as Experiment 1: mean size after a previous-bar move above",
+   "+2 sd / below -2 sd, sd = 1.4826 x MAD, symmetric)",
+   "W7  progressive learning in training: the median over training episodes of the episode's mean",
+   "size is closer to the optimum (|ln(size / G*)|) in the last 20% of training episodes than in",
+   "the first 20%, AND the ruinous share in the last 20% of training episodes is below 1%",
+   "E   exploitation checks clear: own-training-path Q2 minus fresh Q2 at most 0.5; share of",
+   "decisions at 1,000x or more below 0.1%; rejected-order share at most 0.1% (Experiment 1",
+   "control: 0.000%); size output at its numerical safeguard bound in below 0.1% of decisions",
+   "A GROUP supports safe growth if at least 4 of its 6 seeds meet every criterion.",
+   "Interpretation (fixed in advance, checked in this order):",
+   "\"safe growth\"                          the group supports safe growth (above)",
+   "\"earlier safety came from reduced exploration\"   ruinous share >= 1% in at least 3 of 6 seeds",
+   "\"safe but timid\"                       W1 met in at least 4 seeds and W3 in at most 2",
+   "\"mixed\"                                anything else",
+   "Zero ruinous decisions alone is never counted as successful learning.",
+   "Statistics: per seed, bootstrap 95% intervals over the 40 runs; per group, mean with a bootstrap",
+   "interval across seeds. Planned comparisons, each new group against its Experiment 1 representation",
+   "(C1 or C2) and against the Experiment 1 control, on Q2, ruinous share and distance from the optimum",
+   "|ln(median / G*)|: exact two-sided permutation tests across seeds (924 relabellings), Holm-corrected",
+   "over all 18 comparisons, with bootstrap intervals of the difference. Between new groups on the same",
+   "seed index: exact two-sided sign-flip tests (64 assignments), descriptive only."
+  ]
+ },
+ "approval_conditions": [
+  "2026-11-19: the owner gave full control of the project to pursue its aim (autonomous agents that discover profitable opportunities, size positions intelligently and learn from experience) without further approvals.",
+  "Design as recommended in proposal 0007 section 11: R1 control, R6 (c = 0.01, primary), R6-c0.05 (sensitivity); six paired seeds; everything except the reward identical to the Experiment 1 control.",
+  "Kept from all earlier approvals: R1-R5, agents, versions, checkpoints, registries, evaluations and scoring rules untouched; R6 is a new, separately named reward for new agents only; no exposure caps, no added penalties, no trading style; criteria and code frozen by checksum before training; final checkpoints only; every seed reported."
+ ],
+ "checkpoint_every": 250000,
+ "compute": {
+  "estimate": "about 3.2 h training on 4 cores plus about 45 min of evaluation",
+  "evaluations": 162,
+  "matched_null_sets": 36,
+  "training_steps": 54000000
+ },
+ "curve_every": 500000,
+ "decision_quality": {
+  "checksum": "0d0c6486487edacee4b54a34180d63855d77c413ab79e5bb15f27616aa292147",
+  "definition": "Per decision with net exposure G (position value / equity): s(G) = max(g(G) / g(G*), F), and s(G) = F for a ruinous decision. g(G) = (1 - p) E_Z[ln(1 + G (e^(m + sigma Z) - 1))] + p ln(1 - G J) is the exact expected log growth of holding G for one decision (96-point Gauss-Hermite quadrature; minus infinity if G >= 1/J). G* = argmax g. F = g(G_ruin) / g(G*), the score of the smallest ruinous long position (G_ruin = 0.95 / J in S6; for a market without crashes, the size at which a 5-sigma fall reaches the 5% death line). Ruinous: G >= G_ruin long, or |G| >= 0.95 / (e^(m + 5 sigma) - 1) short. Q2 of an episode = mean of s over its decisions; Q2 of an evaluation = mean of the episode values. Uses only the decisions and the market's known parameters, never realised returns.",
+  "frozen": true,
+  "version": "Q2.0"
+ },
+ "env_settings": {
+  "decision_interval": 1,
+  "obs_resolution": 1,
+  "window": 30
+ },
+ "episode_decisions": 1000,
+ "evaluated_checkpoint": "each agent's final checkpoint (no selection)",
+ "experiment_id": "phase3-rfl",
+ "frozen": "S6 market mechanics, R1-R5 unchanged (R6 is a new, separately named reward for new agents), death at 5%, margin 1:2000, simulator, costs, Q2.0 score, open trading principle; no exposure cap, no new penalty, no trading style; the only difference between groups is the reward.",
+ "frozen_code_sha256": {
+  "src/tradeworld/interface/actions.py": "644a7003e3136eadec025a73d04d2f8532a530485f751ca61bc67d2d052e0803",
+  "src/tradeworld/learning/checkpoint.py": "112d0bc826657798ad21fbf47af9ea30689037de3287ce86dc9c3f3cb38ebc5c",
+  "src/tradeworld/learning/continual.py": "ec6e5149814851b1d58d3b6b5c4ccaccbf183614194c5cd38df0d8096cfcd1da",
+  "src/tradeworld/learning/diagnosis.py": "5afa9ccfdaa026f1ac96829d23649ff4f324a27116ac9df3ae865336a1505022",
+  "src/tradeworld/learning/env.py": "aee641dd97bf7d5f6185b2d92d6e7d6429b4704542f17772dc14aab8ded1189e",
+  "src/tradeworld/learning/evaluate.py": "100a09bd1eca58fe9e6eb085395afe48bbbd1feb46dc21b0c4bf685a2fdc8da9",
+  "src/tradeworld/learning/gate.py": "798fddf69365ca9d883014d934bec61c240c7804ca97e2a6a54dcdff7be1e281",
+  "src/tradeworld/learning/history.py": "a9700c40394f951e80d24e4873b8dada9180336b994cc7b40a407977db244ff7",
+  "src/tradeworld/learning/phase3_analysis.py": "ded7df4f3402ad0e3440f3a954a0b3d72a3a8d0ec6675c16243419b44d3b8123",
+  "src/tradeworld/learning/phase3b_analysis.py": "9902286c262adfc2dc1ffcfececda5f348ad0e55521027b0f5e95d3ceea0a597",
+  "src/tradeworld/learning/quality.py": "b71ddd6acdaaa0f420443c7a5de61d8cd8861bcf20a6a4ad789fc2710a325a52",
+  "src/tradeworld/learning/rewards.py": "6ca85c4eedc9b7deff9606ef1815a0d51fb7cfcf9058b6cc089f444243dd6ce5",
+  "src/tradeworld/learning/rfl.py": "a587c672982ccf0732af6421684a29aabc490fb248ff5aec4dc40b71da822851",
+  "src/tradeworld/learning/rfl_analysis.py": "e3a496de7021dc0324943c35080c7c5712348f5341be00cc1dfb3eb465f0a6b7",
+  "src/tradeworld/learning/synthetic_tasks.py": "68950af5adfe20f704daadedf9b75aee35e5e69be5cf4fad067bfd6335793e47",
+  "src/tradeworld/learning/train.py": "be44bc798db2102689d083a1c263e2810abbad1b366c7a6916d10f2da16c3e9d",
+  "src/tradeworld/registry/datasets.py": "c627d8080a5f0835740827cdaf9702a99ddb166b7aa914cdecb3f11b7e0b778a",
+  "src/tradeworld/registry/registry.py": "c598054ac61a318eb687009683f8622da0b802e5d1c92ae8832cfd2e1a48089a"
+ },
+ "gate_note": "The frozen Phase 2 gate (gate.py) has no criterion for R6, so evaluation records of R6 agents carry result 'fail: no criterion'. That verdict is not used; the experiment is judged by the pre-registered criteria above.",
+ "groups": {
+  "R1": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "log10"
+   },
+   "config_sha256": "863fb9de3fd1f4fa0c7a3a2f680374517521991a012a40d40e214d0827f3eac8",
+   "description": "current reward R1 (eps-floored log wealth); concurrent control",
+   "initial_settings": {},
+   "reward": "R1"
+  },
+  "R6": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "log10"
+   },
+   "config_sha256": "3c6910da99eb9faf4bb69a491a38f909a149621de416ccb234bd050609dfb48f",
+   "description": "full-liability log return, c = 0.01: ln M for M >= 0.01, tangent line below (identical to R1 on every bar that does not end the account)",
+   "initial_settings": {},
+   "reward": "R6"
+  },
+  "R6-c0.05": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "log10"
+   },
+   "config_sha256": "f0da48bcb2a2fa9ac520eabc72f225ac84f48cb4d27f48ca2ea2d36b7e316ecc",
+   "description": "full-liability log return, c = 0.05 (sensitivity)",
+   "initial_settings": {},
+   "reward": "R6-c0.05"
+  }
+ },
+ "market": "S6",
+ "n_envs": 8,
+ "paired_seeds": true,
+ "planned_at": "2026-11-19T08:12:06Z",
+ "profile": "A_synthetic",
+ "rewards": {
+  "R1": "R1",
+  "R6": "R6",
+  "R6-c0.05": "R6-c0.05"
+ },
+ "rounds": {
+  "curve": {
+   "rfl-curve-0500k": 20013,
+   "rfl-curve-1000k": 20013,
+   "rfl-curve-1500k": 20013,
+   "rfl-curve-2000k": 20013,
+   "rfl-curve-2500k": 20013,
+   "rfl-curve-3000k": 20013
+  },
+  "rfl-final-a": 20011,
+  "rfl-final-b": 20012,
+  "rfl-trainpaths": "each agent's own training seed"
+ },
+ "seeds_per_group": 6,
+ "steps": 3000000,
+ "storage": {
+  "branch": "claude/phase3-rfl-artifacts",
+  "checkpoint_every": 250000,
+  "estimate": "about 190 MB",
+  "note": "Permanent blobs of this registry live on the separate blobs-only branch above, checked out next to this repository (Git LFS is refused for this repository: public fork).",
+  "path": "../../../phase3-rfl-artifacts/blobs",
+  "path_env": "TRADEWORLD_RFL_BLOBS"
+ }
+}
