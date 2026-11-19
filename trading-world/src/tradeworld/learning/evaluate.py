@@ -177,8 +177,14 @@ def policy_for(reg: Registry, identity: dict, sha: str):
     if kind == "model-kelly-v2":
         from .model_kelly2 import load_policy
         return load_policy(reg.blobs, sha, identity)
+    if kind in ("model-kelly-v3", "model-kelly-v3-costblind"):
+        from .model_kelly3 import load_policy
+        return load_policy(reg.blobs, sha, identity, cost_blind=kind.endswith("costblind"))
     if kind == "benchmark-constant":
         return constant_policy(identity)
+    if kind == "reference-cost-aware":
+        from .model_kelly3 import reference_policy
+        return reference_policy(identity)
     return model_policy(load_model(reg, sha))
 
 

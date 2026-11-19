@@ -14,6 +14,12 @@ the agent acts on. Train and test markets come from different seeds (out-of-samp
 | S5   | random walk + hidden future-return canary (not observed)| no profit (profit would mean a leak)             |
 | S6   | positive drift + fat-tailed crashes                     | R1 moderate leverage survives; R2 high, dies     |
 | S7   | GBM, known mu/sigma, no costs                           | R1 leverage -> mu/sigma^2 = 5; R2 does not       |
+| S1C  | S1 with a 4x wider spread (0.4 sigma)                   | trades only moves worth their cost; profitable   |
+| S2C  | S2 with a spread wider than one bar's drift (1.0 sigma) | holds through regimes; profitable after costs    |
+
+S1C and S2C (Experiment M3) are the same generators as S1 and S2 with costs high enough that trading every
+signal loses money: only an agent that weighs its edge against the cost (and, in S2C, against how long the
+edge lasts) can profit. Their random streams are seeded by their own names, so they never share data with S1/S2.
 """
 from __future__ import annotations
 
@@ -65,8 +71,8 @@ def build(name: str, seed: int, steps: int = 200_000) -> Task:
     rng = np.random.default_rng(np.random.SeedSequence([seed, stable_int(name) % (2 ** 31)]))
     eps = rng.standard_normal(steps)
     env_kwargs = dict(decision_interval=1, obs_resolution=1, window=30)
-    if name == "S1":
-        phi, spread = -0.3, 0.1 * SIGMA
+    if name in ("S1", "S1C"):
+        phi, spread = -0.3, (0.1 if name == "S1" else 0.4) * SIGMA
         r = np.empty(steps)
         prev = 0.0
         for k in range(steps):
@@ -74,8 +80,8 @@ def build(name: str, seed: int, steps: int = 200_000) -> Task:
             r[k] = prev
         return Task(name, _market(r, spread, 0.3 * SIGMA), profile(),
                     params=dict(phi=phi, sigma=SIGMA, spread=spread), env_kwargs=env_kwargs)
-    if name == "S2":
-        mu, spread, mean_len = 0.15 * SIGMA, 0.05 * SIGMA, 400
+    if name in ("S2", "S2C"):
+        mu, spread, mean_len = 0.15 * SIGMA, (0.05 if name == "S2" else 1.0) * SIGMA, 400
         flag = np.empty(steps)
         state, k = 1.0, 0
         while k < steps:
@@ -114,3 +120,4 @@ def build(name: str, seed: int, steps: int = 200_000) -> Task:
 
 
 TASKS = ("S1", "S2", "S3", "S4", "S5", "S6", "S7")
+COST_TASKS = ("S1C", "S2C")
