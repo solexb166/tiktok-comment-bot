@@ -1,0 +1,387 @@
+{
+ "agents": {
+  "MK2-S4-s1": {
+   "agent_id": "ag-6c5707a489",
+   "group": "MK2-S4",
+   "seed": 1000,
+   "seed_index": 1,
+   "task": "S4"
+  },
+  "MK2-S4-s2": {
+   "agent_id": "ag-8e6a147f71",
+   "group": "MK2-S4",
+   "seed": 1001,
+   "seed_index": 2,
+   "task": "S4"
+  },
+  "MK2-S4-s3": {
+   "agent_id": "ag-1fd2344864",
+   "group": "MK2-S4",
+   "seed": 1002,
+   "seed_index": 3,
+   "task": "S4"
+  },
+  "MK2-S4-s4": {
+   "agent_id": "ag-7700f9c047",
+   "group": "MK2-S4",
+   "seed": 1003,
+   "seed_index": 4,
+   "task": "S4"
+  },
+  "MK2-S4-s5": {
+   "agent_id": "ag-d3c078f86c",
+   "group": "MK2-S4",
+   "seed": 1004,
+   "seed_index": 5,
+   "task": "S4"
+  },
+  "MK2-S4-s6": {
+   "agent_id": "ag-af66c14aa6",
+   "group": "MK2-S4",
+   "seed": 1005,
+   "seed_index": 6,
+   "task": "S4"
+  },
+  "MK2-S6-s1": {
+   "agent_id": "ag-a2ee93fdf0",
+   "group": "MK2-S6",
+   "seed": 1066,
+   "seed_index": 1,
+   "task": "S6"
+  },
+  "MK2-S6-s2": {
+   "agent_id": "ag-042b699ece",
+   "group": "MK2-S6",
+   "seed": 1067,
+   "seed_index": 2,
+   "task": "S6"
+  },
+  "MK2-S6-s3": {
+   "agent_id": "ag-8ac2fe3c88",
+   "group": "MK2-S6",
+   "seed": 1068,
+   "seed_index": 3,
+   "task": "S6"
+  },
+  "MK2-S6-s4": {
+   "agent_id": "ag-cc04b3e799",
+   "group": "MK2-S6",
+   "seed": 1069,
+   "seed_index": 4,
+   "task": "S6"
+  },
+  "MK2-S6-s5": {
+   "agent_id": "ag-e3818a2b71",
+   "group": "MK2-S6",
+   "seed": 1070,
+   "seed_index": 5,
+   "task": "S6"
+  },
+  "MK2-S6-s6": {
+   "agent_id": "ag-b703757170",
+   "group": "MK2-S6",
+   "seed": 1071,
+   "seed_index": 6,
+   "task": "S6"
+  },
+  "MK2-S7-s1": {
+   "agent_id": "ag-d4f24a9a38",
+   "group": "MK2-S7",
+   "seed": 1006,
+   "seed_index": 1,
+   "task": "S7"
+  },
+  "MK2-S7-s2": {
+   "agent_id": "ag-ec467eb6a8",
+   "group": "MK2-S7",
+   "seed": 1007,
+   "seed_index": 2,
+   "task": "S7"
+  },
+  "MK2-S7-s3": {
+   "agent_id": "ag-cee00b3985",
+   "group": "MK2-S7",
+   "seed": 1008,
+   "seed_index": 3,
+   "task": "S7"
+  },
+  "MK2-S7-s4": {
+   "agent_id": "ag-b1fafd1b07",
+   "group": "MK2-S7",
+   "seed": 1009,
+   "seed_index": 4,
+   "task": "S7"
+  },
+  "MK2-S7-s5": {
+   "agent_id": "ag-51581b02c7",
+   "group": "MK2-S7",
+   "seed": 1010,
+   "seed_index": 5,
+   "task": "S7"
+  },
+  "MK2-S7-s6": {
+   "agent_id": "ag-18501b2212",
+   "group": "MK2-S7",
+   "seed": 1011,
+   "seed_index": 6,
+   "task": "S7"
+  }
+ },
+ "analysis": {
+  "criteria": [
+   "Experiment M2: the pre-registered analysis (frozen by checksum in the manifest before any training).",
+   "Agents: model-based growth-optimal agents v2 (model_kelly2), six seeds per market, judged on their FINAL",
+   "checkpoint (200,000 bars of experience) on six fresh rounds of 20 test runs (120 runs). Test power was set from",
+   "Experiment M1's power analysis: with 40 runs the exact growth-optimal policy itself passed the growth test only",
+   "9 of 15 times; with 120 runs its standard error falls to about 0.064 against a mean growth of about 0.25 per run.",
+   "Benchmark = the exact growth-optimal constant size (computed from the market's known parameters) on the same runs.",
+   "S6 (MK2-S6): a seed succeeds only if all hold:",
+   "W1  ruinous decisions < 1%",
+   "W2' test deaths <= the benchmark's deaths on the same 120 runs + 2",
+   "W3  median size within x2 of G* (1.47-5.86x)",
+   "W4  Q2.0 >= 0.50",
+   "W5' mean log growth per run > 0 with its 95% bootstrap interval (120 runs) above 0, and above the matched-random",
+   "95th percentile in at least 5 of the 6 rounds",
+   "W6  previous-move tilt < 1.5",
+   "W7' on the development round, Q2 after 200,000 bars of experience > after 20,000 bars, and final ruinous < 1%",
+   "E   own-training-path Q2 minus fresh Q2 <= 0.5; decisions at 1,000x or more < 0.1%; rejected orders <= 0.1%;",
+   "size output at the upper end of its numerical range (the only end that could cap exposure) < 0.1%",
+   "S7 (MK2-S7): as S6 without W4 (Q2 provisional for S7), with G* = 5x (W3: 2.5-10x), W7'' instead of W7' (the",
+   "distance |ln(median / G*)| after 200,000 bars < after 20,000 bars, and final ruinous < 1%), and E without the",
+   "Q2-based training-path gap.",
+   "S4 (MK2-S4, no edge): a seed succeeds if it claims no edge: |t| of mean log growth over the 120 runs < 2, no test",
+   "deaths, and the E checks on boundary, rejected orders and numerical bound.",
+   "A market passes if at least 4 of its 6 seeds succeed. M2 passes if all three markets pass.",
+   "S6 interpretation, in this order: \"safe growth\"; \"still enters the ruin zone\" (ruinous >= 1% in >= 3 seeds);",
+   "\"safe but timid (learning problem)\" (W1 in >= 4 seeds and W3 in <= 2); otherwise \"mixed\".",
+   "Planned comparisons (S6), on Q2, ruinous share and distance |ln(median / G*)|, against Experiment M1's MK-S6 and the",
+   "R-FL R1 control (historical references): exact two-sided permutation tests across seeds, Holm over 6 comparisons."
+  ],
+  "file": "src/tradeworld/learning/m2_analysis.py"
+ },
+ "approval_conditions": [
+  "2026-11-19: the owner gave full control of the project to pursue its aim (autonomous agents that discover profitable opportunities, size positions intelligently and learn from experience) without further approvals.",
+  "Motivation (Experiment M1): the model-based agent eliminated ruin (0.00% in all seeds, 0 deaths) and beat every PPO group (Q2 +0.72), but its gradient-trained mixture spread the crash into a broad component (sizes ~20% below optimal), and its growth test was underpowered (the exact optimal policy itself passed it 9 of 15 times with 40 runs). Version 2 fits the unconditional mixture exactly (EM), selects between unconditional and conditional models by held-out likelihood, corrects for estimation risk, and is tested on 120 runs with an optimal benchmark on the same runs.",
+  "Kept: all earlier agents, versions, checkpoints, registries, evaluations, rewards and scoring rules untouched; nothing about the market given to the agents; no exposure caps, penalties or trading style; criteria and code frozen by checksum before training; final checkpoints only; every seed reported."
+ ],
+ "benchmarks": {
+  "S4": {
+   "agent_id": "ag-10a4e7a4d6",
+   "size": 0.0
+  },
+  "S6": {
+   "agent_id": "ag-024a98218e",
+   "size": 2.930734253819811
+  },
+  "S7": {
+   "agent_id": "ag-15b0175e69",
+   "size": 4.990981854927391
+  }
+ },
+ "compute": {
+  "agents": 18,
+  "estimate": "about 15 minutes of training and 1-2 hours of evaluation on 4 cores"
+ },
+ "data_points": [
+  20000,
+  60000,
+  200000
+ ],
+ "decision_quality": {
+  "checksum": "0d0c6486487edacee4b54a34180d63855d77c413ab79e5bb15f27616aa292147",
+  "definition": "Per decision with net exposure G (position value / equity): s(G) = max(g(G) / g(G*), F), and s(G) = F for a ruinous decision. g(G) = (1 - p) E_Z[ln(1 + G (e^(m + sigma Z) - 1))] + p ln(1 - G J) is the exact expected log growth of holding G for one decision (96-point Gauss-Hermite quadrature; minus infinity if G >= 1/J). G* = argmax g. F = g(G_ruin) / g(G*), the score of the smallest ruinous long position (G_ruin = 0.95 / J in S6; for a market without crashes, the size at which a 5-sigma fall reaches the 5% death line). Ruinous: G >= G_ruin long, or |G| >= 0.95 / (e^(m + 5 sigma) - 1) short. Q2 of an episode = mean of s over its decisions; Q2 of an evaluation = mean of the episode values. Uses only the decisions and the market's known parameters, never realised returns.",
+  "frozen": true,
+  "note": "exact for S6; provisional for S7 (not used); undefined for S4",
+  "version": "Q2.0"
+ },
+ "env_settings": {
+  "decision_interval": 1,
+  "obs_resolution": 1,
+  "window": 30
+ },
+ "episode_decisions": 1000,
+ "evaluated_checkpoint": "each agent's final checkpoint (200,000 bars; no selection)",
+ "experiment_id": "phase3-m2",
+ "final_rounds": 6,
+ "frozen": "market mechanics, R1-R6, scoring rules, simulator, margin, death rule, Q2.0; no exposure cap, no penalty, no trading style; nothing about the market is given to the agents (only to the labelled benchmarks).",
+ "frozen_code_sha256": {
+  "src/tradeworld/interface/actions.py": "644a7003e3136eadec025a73d04d2f8532a530485f751ca61bc67d2d052e0803",
+  "src/tradeworld/learning/diagnosis.py": "5afa9ccfdaa026f1ac96829d23649ff4f324a27116ac9df3ae865336a1505022",
+  "src/tradeworld/learning/env.py": "aee641dd97bf7d5f6185b2d92d6e7d6429b4704542f17772dc14aab8ded1189e",
+  "src/tradeworld/learning/evaluate.py": "4cb7b64d40f0cdeb668896a49bcaca5d7e7969937faf167e82c460968e7eaca3",
+  "src/tradeworld/learning/gate.py": "798fddf69365ca9d883014d934bec61c240c7804ca97e2a6a54dcdff7be1e281",
+  "src/tradeworld/learning/m2.py": "a490345d2aaf0486fa829699703b17e3a2c7f812744596f7e27fe932b4b8211b",
+  "src/tradeworld/learning/m2_analysis.py": "020a147e6702f7918e3b17c600dd7ad6e3330332efaa212d38a485c3d6119637",
+  "src/tradeworld/learning/model_kelly.py": "7337c0d409cc017f98875d1dd3b272b3dd49d410900d65c3dbd0934cef98bbfb",
+  "src/tradeworld/learning/model_kelly2.py": "710f8b2c9d24c51815aafb5d609645f5594c9c8a22359cbfda8ccc3d0fb569a0",
+  "src/tradeworld/learning/phase3_analysis.py": "ded7df4f3402ad0e3440f3a954a0b3d72a3a8d0ec6675c16243419b44d3b8123",
+  "src/tradeworld/learning/phase3b_analysis.py": "9902286c262adfc2dc1ffcfececda5f348ad0e55521027b0f5e95d3ceea0a597",
+  "src/tradeworld/learning/quality.py": "b71ddd6acdaaa0f420443c7a5de61d8cd8861bcf20a6a4ad789fc2710a325a52",
+  "src/tradeworld/learning/synthetic_tasks.py": "68950af5adfe20f704daadedf9b75aee35e5e69be5cf4fad067bfd6335793e47",
+  "src/tradeworld/registry/datasets.py": "c627d8080a5f0835740827cdaf9702a99ddb166b7aa914cdecb3f11b7e0b778a",
+  "src/tradeworld/registry/registry.py": "c598054ac61a318eb687009683f8622da0b802e5d1c92ae8832cfd2e1a48089a"
+ },
+ "groups": {
+  "MK2-S4": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "log10"
+   },
+   "agent_type": "model-kelly-v2",
+   "config_sha256": "dff19be4660591e95d71a3495ad970f71e5fcbfb2754fd4102c2a70cf79601aa",
+   "data_points": [
+    20000,
+    60000,
+    200000
+   ],
+   "model_config": {
+    "batch": 1024,
+    "bisection_iters": 100,
+    "em_iters": 500,
+    "em_tol": 1e-09,
+    "lr": 0.001,
+    "max_abs_size": 2000.0,
+    "max_components": 6,
+    "max_epochs": 100,
+    "mdn_components": 5,
+    "mdn_hidden": 64,
+    "patience": 8,
+    "quad_nodes": 32,
+    "sigma_log_max": 6.0,
+    "val_frac": 0.2,
+    "weight_decay": 1e-05
+   },
+   "reward": "R1",
+   "task": "S4"
+  },
+  "MK2-S6": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "log10"
+   },
+   "agent_type": "model-kelly-v2",
+   "config_sha256": "0b2651830c5ec8e26eae65eeb126ff3983afabd9996138faedc97628a4e5191f",
+   "data_points": [
+    20000,
+    60000,
+    200000
+   ],
+   "model_config": {
+    "batch": 1024,
+    "bisection_iters": 100,
+    "em_iters": 500,
+    "em_tol": 1e-09,
+    "lr": 0.001,
+    "max_abs_size": 2000.0,
+    "max_components": 6,
+    "max_epochs": 100,
+    "mdn_components": 5,
+    "mdn_hidden": 64,
+    "patience": 8,
+    "quad_nodes": 32,
+    "sigma_log_max": 6.0,
+    "val_frac": 0.2,
+    "weight_decay": 1e-05
+   },
+   "reward": "R1",
+   "task": "S6"
+  },
+  "MK2-S7": {
+   "action_space": {
+    "cap": null,
+    "log10_max": 4.0,
+    "log10_min": -4.0,
+    "size_repr": "log10"
+   },
+   "agent_type": "model-kelly-v2",
+   "config_sha256": "2d38083e923e73bbdbec040767648f22c41b2afaa26dc883bcef80302c8b7ea9",
+   "data_points": [
+    20000,
+    60000,
+    200000
+   ],
+   "model_config": {
+    "batch": 1024,
+    "bisection_iters": 100,
+    "em_iters": 500,
+    "em_tol": 1e-09,
+    "lr": 0.001,
+    "max_abs_size": 2000.0,
+    "max_components": 6,
+    "max_epochs": 100,
+    "mdn_components": 5,
+    "mdn_hidden": 64,
+    "patience": 8,
+    "quad_nodes": 32,
+    "sigma_log_max": 6.0,
+    "val_frac": 0.2,
+    "weight_decay": 1e-05
+   },
+   "reward": "R1",
+   "task": "S7"
+  }
+ },
+ "planned_at": "2026-11-19T12:24:22Z",
+ "profile": "A_synthetic",
+ "references": {
+  "m1": {
+   "file": "registry-m1/analyses/m1-verdict/verdict.json",
+   "sha256": "ad5d8b1ca930f4ce610203c07cc0e9c251f12ae061eb7436d978f3d9670b3410"
+  },
+  "rfl": {
+   "file": "registry-rfl/analyses/rfl-verdict/verdict.json",
+   "sha256": "affafb90aa7144b3a7b265779e6b299979a2cd5a1edf612b30487a585273299d"
+  }
+ },
+ "rounds": {
+  "m2-s4-curve": {
+   "m2-s4-curve-020k": 20006,
+   "m2-s4-curve-060k": 20006,
+   "m2-s4-curve-200k": 20006
+  },
+  "m2-s4-final-1": 20000,
+  "m2-s4-final-2": 20001,
+  "m2-s4-final-3": 20002,
+  "m2-s4-final-4": 20003,
+  "m2-s4-final-5": 20004,
+  "m2-s4-final-6": 20005,
+  "m2-s4-trainpaths": "each agent's own training seed",
+  "m2-s6-curve": {
+   "m2-s6-curve-020k": 20023,
+   "m2-s6-curve-060k": 20023,
+   "m2-s6-curve-200k": 20023
+  },
+  "m2-s6-final-1": 20017,
+  "m2-s6-final-2": 20018,
+  "m2-s6-final-3": 20019,
+  "m2-s6-final-4": 20020,
+  "m2-s6-final-5": 20021,
+  "m2-s6-final-6": 20022,
+  "m2-s6-trainpaths": "each agent's own training seed",
+  "m2-s7-curve": {
+   "m2-s7-curve-020k": 20009,
+   "m2-s7-curve-060k": 20009,
+   "m2-s7-curve-200k": 20009
+  },
+  "m2-s7-final-1": 20003,
+  "m2-s7-final-2": 20004,
+  "m2-s7-final-3": 20005,
+  "m2-s7-final-4": 20006,
+  "m2-s7-final-5": 20007,
+  "m2-s7-final-6": 20008,
+  "m2-s7-trainpaths": "each agent's own training seed"
+ },
+ "seeds_per_group": 6,
+ "storage": {
+  "branch": "claude/phase3-m2-artifacts",
+  "estimate": "a few MB (18 agents x 3 small world models)",
+  "note": "Permanent blobs of this registry live on the separate blobs-only branch above, checked out next to this repository (Git LFS is refused for this repository: public fork).",
+  "path": "../../../phase3-m2-artifacts/blobs",
+  "path_env": "TRADEWORLD_M2_BLOBS"
+ },
+ "train_data_bars": 200000
+}
