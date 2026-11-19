@@ -29,6 +29,8 @@ EXPERIMENTS = [
      "phase3-m1/trading-world/registry-m1/analyses/m1-verdict/verdict.json", "claude/phase3-m1"),
     ("m2", "Experiment M2: model-based agent v2 (exact mixture fit, model choice, edge shrinkage)",
      "phase3-m2/trading-world/registry-m2/analyses/m2-verdict/verdict.json", "claude/phase3-m2"),
+    ("m3", "Experiment M3: model-based agent v3 with trading costs (calibration, persistence, cost-aware decisions)",
+     "phase3-m3/trading-world/registry-m3/analyses/m3-verdict/verdict.json", "claude/phase3-m3"),
 ]
 
 GROUPS = {
@@ -41,8 +43,12 @@ GROUPS = {
     "m1": {"MK-S6": ("Model-based agent", "S6", 2.93), "MK-S7": ("Model-based agent", "S7", 5.0)},
     "m2": {"MK2-S6": ("Model-based agent v2", "S6", 2.93), "MK2-S7": ("Model-based agent v2", "S7", 5.0),
            "MK2-S4": ("Model-based agent v2", "S4", 0.0)},
+    "m3": {"MK3-S1C": ("Model-based agent v3", "S1C", None), "MK3-S2C": ("Model-based agent v3", "S2C", None),
+           "MK3-S3": ("Model-based agent v3", "S3", 0.0), "MK3-S6": ("Model-based agent v3", "S6", 2.93)},
 }
-MARKETS = {"S4": "No edge (random walk)", "S6": "Drift plus rare crashes", "S7": "Drift, no crashes"}
+MARKETS = {"S4": "No edge (random walk)", "S6": "Drift plus rare crashes", "S7": "Drift, no crashes",
+           "S1C": "Bounce-back pattern, high trading costs", "S2C": "Announced trends, high trading costs",
+           "S3": "Pure noise with trading costs"}
 
 
 def num(x):
@@ -133,7 +139,7 @@ def main():
     ev2 = ev3 = ev4 = "Experiment M2 (not finished)"
     if m2:
         g6, g7 = m2["MK2-S6"], m2["MK2-S7"]
-        m2v = json.loads((base / EXPERIMENTS[-1][2]).read_text())
+        m2v = json.loads((base / next(e[2] for e in EXPERIMENTS if e[0] == "m2")).read_text())
         bench7 = m2v["benchmarks"]["S7"]["deaths"]
         holders = [x for x in sd["MK2-S4"] if abs(x["median_size"] or 0) > 0.05]
         ev2 = (f"M2: {g6['successes']}/6 agents succeeded; typical size {g6['median_size']:.2f}x against the best "
@@ -145,6 +151,14 @@ def main():
         ev4 = (f"M2: 6/6 claimed no real edge, as required. Caveat: {len(holders)} of 6 still held positions "
                f"({', '.join(f'{abs(x['median_size']):.2f}x' for x in holders)}) on chance drift. Harmless without trading "
                "costs, costly with them; the next stage tests exactly this.")
+    m3 = {g["group"]: g for g in groups if g["experiment"] == "m3"}
+    if not m3:
+        st5, ev5 = ("running" if (base / "phase3-m3/trading-world/registry-m3/experiments/phase3-m3/manifest.json").exists()
+                    else "not started"), "Experiment M3 (running): 24 cost-aware agents on S1C, S2C, S3 and an S6 regression check"
+    else:
+        ok = all(m3[g]["passes"] for g in ("MK3-S1C", "MK3-S2C", "MK3-S3"))
+        st5 = "passed" if ok else "failed"
+        ev5 = "M3: " + "; ".join(f"{m3[g]['market']} {m3[g]['successes']}/6 agents succeeded" for g in ("MK3-S1C", "MK3-S2C", "MK3-S3", "MK3-S6"))
     roadmap = [
         dict(order=1, stage="Learning machinery and practice markets with known right answers", status="passed",
              evidence="Phase 2 gate, agent registry, decision replays (all below)"),
@@ -152,8 +166,7 @@ def main():
              evidence=ev2),
         dict(order=3, stage="Find the known best position size (S7)", status=st("MK2-S7"), evidence=ev3),
         dict(order=4, stage="Claim no edge where none exists (S4)", status=st("MK2-S4"), evidence=ev4),
-        dict(order=5, stage="Profit from predictable patterns after trading costs (S1, S2, S3)", status="not started",
-             evidence="Next experiment"),
+        dict(order=5, stage="Profit from predictable patterns after trading costs (S1C, S2C, S3)", status=st5, evidence=ev5),
         dict(order=6, stage="Adapt when the market changes", status="not started", evidence=""),
         dict(order=7, stage="Real historical prices: train, then test once on sealed data", status="not started",
              evidence=f"Real data downloaded: {dl_done} of {dl_total} instrument-months"),

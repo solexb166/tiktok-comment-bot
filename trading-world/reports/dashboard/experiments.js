@@ -6,7 +6,7 @@ function twE_rows(id) {
   return s.status === 'ok' ? s.data : [];
 }
 const twE_statusClass = { passed: 'tw-pass', failed: 'tw-fail' };
-const twE_statusText = { passed: 'Passed', failed: 'Failed', pending: 'Running', 'not started': 'Not started' };
+const twE_statusText = { passed: 'Passed', failed: 'Failed', pending: 'Running', running: 'Running', 'not started': 'Not started' };
 const twE_short = { exp1: 'Exp 1', exp1b: 'Exp 1b', rfl: 'R-FL', m1: 'M1', m2: 'M2' };
 
 dash.draw('roadmap-passed', (el) => {
@@ -40,7 +40,7 @@ dash.draw('exp-rows', (tb) => {
     { t: r.agent }, { t: `${r.market_name} (${r.market})` },
     { t: r.successes == null ? 'not scored per agent' : `${r.successes} of ${r.n}`, num: true },
     { t: r.verdict, pill: r.passes ? 'tw-pass' : 'tw-fail' },
-    { t: f2(r.median_size), num: true }, { t: r.market === 'S4' ? 'none (0x)' : f2(r.optimal_size), num: true },
+    { t: f2(r.median_size), num: true }, { t: (r.market === 'S4' || r.market === 'S3') ? 'none (0x)' : r.optimal_size == null ? 'changes every bar' : f2(r.optimal_size), num: true },
     { t: r.ruinous_pct == null ? '—' : d3.format('.1f')(r.ruinous_pct) + '%', num: true },
   ]).join('td')
     .attr('class', (c) => c.num ? 'tw-num' : null)
@@ -86,7 +86,7 @@ dash.draw('exp-chart', (el) => {
       .attr('text-anchor', narrow ? 'start' : 'end').text(G.label);
     if (G.g.market === 'S6') svg.append('line').attr('x1', ruinX).attr('x2', ruinX).attr('y1', cy - 9).attr('y2', cy + 9)
       .style('stroke', 'var(--cds-chart-status-critical)').style('stroke-width', 2).style('stroke-dasharray', '3 2');
-    svg.append('path').attr('d', d3.symbol(d3.symbolDiamond, 70)()).attr('transform', `translate(${x(G.g.optimal_size)},${cy})`)
+    if (G.g.optimal_size != null) svg.append('path').attr('d', d3.symbol(d3.symbolDiamond, 70)()).attr('transform', `translate(${x(G.g.optimal_size)},${cy})`)
       .style('fill', 'none').style('stroke', 'var(--color-fg)').style('stroke-width', 1.5);
   });
   const tip = d3.select(el).append('div').attr('class', 'tw-tip').style('display', 'none');
