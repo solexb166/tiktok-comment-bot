@@ -167,6 +167,15 @@ def load_model(reg: Registry, sha: str):
     return PPO.load(io.BytesIO(reg.blobs.get(sha)), device="cpu")
 
 
+def policy_for(reg: Registry, identity: dict, sha: str):
+    """The deterministic decision function of an evaluated checkpoint: a PPO policy (every agent without an
+    `agent_type`, unchanged) or, for new model-based agents, the learned world model plus its sizing rule."""
+    if identity.get("agent_type") == "model-kelly":
+        from .model_kelly import load_policy
+        return load_policy(reg.blobs, sha, identity)
+    return model_policy(load_model(reg, sha))
+
+
 def evaluate(reg: Registry, agent_id: str, version: int, round_id: str, *, checkpoint_sha: str | None = None,
              reference: dict | None = None, extra_fields: dict | None = None, policy=None) -> dict:
     """Evaluate one version on a round's test data and store the write-once record."""
@@ -181,7 +190,7 @@ def evaluate(reg: Registry, agent_id: str, version: int, round_id: str, *, check
     seed = round_test_seed(rnd, ident["task"], ident["original_seed"])
     task = st.build(ident["task"], seed, rnd.get("test_steps", TEST_STEPS_DATA))
     starts = test_starts(task, ident)
-    rows, stats = run_recorded(policy or model_policy(load_model(reg, sha)), ident, task, starts)
+    rows, stats = run_recorded(policy or policy_for(reg, ident, sha), ident, task, starts)
     run = dict(episodes=stats)
     if ident["task"] == "S1":
         run["null"] = null_distribution(ident, task, starts, stats)
@@ -251,8 +260,7 @@ def decision_log(reg: Registry, evaluation: dict) -> pd.DataFrame:
     task = st.build(td["task"], td["seed"], evaluation.get("test_steps", TEST_STEPS_DATA))
     if task.md.content_hash() != td["data_hash"]:
         raise RegistryError("test data no longer regenerates identically; cannot rebuild the decision log")
-    model = load_model(reg, evaluation["checkpoint_sha256"])
-    rows, _ = run_recorded(model_policy(model), ident, task, td["episode_starts"])
+    rows, _ = run_recorded(policy_for(reg, ident, evaluation["checkpoint_sha256"]), ident, task, td["episode_starts"])
     log = pd.DataFrame(rows)
     if log_fingerprint(log) != evaluation["decision_log_fingerprint"]:
         raise RegistryError("regenerated decision log does not match its fingerprint")
