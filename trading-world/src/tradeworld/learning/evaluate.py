@@ -170,10 +170,30 @@ def load_model(reg: Registry, sha: str):
 def policy_for(reg: Registry, identity: dict, sha: str):
     """The deterministic decision function of an evaluated checkpoint: a PPO policy (every agent without an
     `agent_type`, unchanged) or, for new model-based agents, the learned world model plus its sizing rule."""
-    if identity.get("agent_type") == "model-kelly":
+    kind = identity.get("agent_type")
+    if kind == "model-kelly":
         from .model_kelly import load_policy
         return load_policy(reg.blobs, sha, identity)
+    if kind == "model-kelly-v2":
+        from .model_kelly2 import load_policy
+        return load_policy(reg.blobs, sha, identity)
+    if kind == "benchmark-constant":
+        return constant_policy(identity)
     return model_policy(load_model(reg, sha))
+
+
+def constant_policy(identity: dict):
+    """Benchmark (not an agent): always holds the constant signed size `benchmark_size` from its identity (e.g. the
+    exact growth-optimal size computed from the market's known parameters). Used only as a reference on the same
+    test runs; it learns nothing."""
+    G = float(identity["benchmark_size"])
+    mapper = mapper_from(identity)
+    if abs(G) < 1e-12:
+        a = np.zeros(mapper.size)
+        a[-1] = -1.0
+    else:
+        a = np.array([float(np.sign(G)), mapper.u_for_gross(abs(G))])
+    return lambda o: a
 
 
 def evaluate(reg: Registry, agent_id: str, version: int, round_id: str, *, checkpoint_sha: str | None = None,
