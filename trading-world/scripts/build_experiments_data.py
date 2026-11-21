@@ -33,6 +33,8 @@ EXPERIMENTS = [
      "phase3-m3/trading-world/registry-m3/analyses/m3-verdict/verdict.json", "claude/phase3-m3"),
     ("m4", "Experiment M4: model-based agent v4 for markets that change (learned regimes, tracked while trading)",
      "phase3-m4/trading-world/registry-m4/analyses/m4-verdict/verdict.json", "claude/phase3-m4"),
+    ("m5", "Experiment M5: model-based agent v5 for markets that change (v4 with a reliable regime fit)",
+     "phase3-m5/trading-world/registry-m5/analyses/m5-verdict/verdict.json", "claude/phase3-m5"),
 ]
 
 GROUPS = {
@@ -50,6 +52,9 @@ GROUPS = {
     "m4": {"MK4-S1X": ("Model-based agent v4", "S1X", None), "MK4-S2X": ("Model-based agent v4", "S2X", None),
            "MK4-S6X": ("Model-based agent v4", "S6X", None), "MK4-S1C": ("Model-based agent v4", "S1C", None),
            "MK4-S6": ("Model-based agent v4", "S6", 2.93)},
+    "m5": {"MK5-S1X": ("Model-based agent v5", "S1X", None), "MK5-S2X": ("Model-based agent v5", "S2X", None),
+           "MK5-S6X": ("Model-based agent v5", "S6X", None), "MK5-S1C": ("Model-based agent v5", "S1C", None),
+           "MK5-S6": ("Model-based agent v5", "S6", 2.93)},
 }
 MARKETS = {"S4": "No edge (random walk)", "S6": "Drift plus rare crashes", "S7": "Drift, no crashes",
            "S1C": "Bounce-back pattern, high trading costs", "S2C": "Announced trends, high trading costs",
@@ -174,7 +179,17 @@ def main():
                f"{100 * r2['growth_mean'] / r2['reference']['growth']:.0f}% of the true-parameter reference but died more often "
                f"({r2['deaths_total']} in 720 runs, against the reference's {r2['reference']['deaths']} in 120).")
     m4 = {g["group"]: g for g in groups if g["experiment"] == "m4"}
-    if not m4:
+    m5 = {g["group"]: g for g in groups if g["experiment"] == "m5"}
+    if m5:
+        v5 = json.loads((base / next(e[2] for e in EXPERIMENTS if e[0] == "m5")).read_text())["verdicts"]
+        st6 = "passed" if v5["M5_passes"] else "failed"
+        ev6 = ("M5 (after M4 failed on crash storms): " + "; ".join(f"{m5[g]['market']} {m5[g]['successes']}/6" for g in ("MK5-S1X", "MK5-S2X", "MK5-S6X", "MK5-S1C", "MK5-S6"))
+               + f". Agents now detect calm and storm spells (S6X {v5['MK5-S6X']['growth_mean']:+.2f} per run against "
+               f"{v5['MK5-S6X']['ablation']['growth_mean']:+.2f} for their own fixed model; the reference that knows the rules "
+               f"{v5['MK5-S6X']['reference']['growth']:+.2f}) and still track pattern and trend flips (S1X {v5['MK5-S1X']['growth_mean']:+.1f}, "
+               f"S2X {v5['MK5-S2X']['growth_mean']:+.1f}). Caveat: in S2X deaths stay high ({v5['MK5-S2X']['deaths_total']} in 720 runs; "
+               f"reference {v5['MK5-S2X']['reference']['deaths']} in 120) and two agents died significantly more than the reference.")
+    elif not m4:
         st6, ev6 = "not started", ""
     else:
         v4 = json.loads((base / next(e[2] for e in EXPERIMENTS if e[0] == "m4")).read_text())["verdicts"]
