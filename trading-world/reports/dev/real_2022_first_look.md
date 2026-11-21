@@ -39,3 +39,20 @@ The synthetic markets could not reveal this, because their effects were large an
 
 **Next:** version 6 with estimation risk measured robustly on the agent's own experience (block bootstrap) and
 applied to every regime. The development loop runs on real 2022 data before the formal stage 7.
+
+## 3. Version 6, same check (hourly; same learn and trade periods)
+
+Version 6 adds a held-out check of predicted edges with block-bootstrap uncertainty, applied to every model
+(branch `claude/phase3-m6`).
+
+| Instrument | Held-out slope (se) | Kept | Result |
+|---|---|---|---|
+| EUR/USD | +0.55 (0.62) | 0 | flat, 0.00 per run |
+| USD/JPY | +0.01 (0.44) | 0 | flat, 0.00 |
+| Gold | −0.65 (0.48) | 0 | flat, 0.00 |
+| Nasdaq | −0.99 (0.44) | 0 | flat, 0.00 |
+
+No predicted edge held up out of sample, so version 6 stays out and no longer loses money. It also no longer catches
+USD/JPY's 2022 trend, which version 5 rode by luck. The honest state: safe on real data, but with the last three
+hourly returns as its only information it finds no edge in 2022 worth trading. Real opportunities, if any, need richer
+information (time of day, longer horizons, other markets) and more history.
