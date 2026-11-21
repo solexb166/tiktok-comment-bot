@@ -31,6 +31,8 @@ EXPERIMENTS = [
      "phase3-m2/trading-world/registry-m2/analyses/m2-verdict/verdict.json", "claude/phase3-m2"),
     ("m3", "Experiment M3: model-based agent v3 with trading costs (calibration, persistence, cost-aware decisions)",
      "phase3-m3/trading-world/registry-m3/analyses/m3-verdict/verdict.json", "claude/phase3-m3"),
+    ("m4", "Experiment M4: model-based agent v4 for markets that change (learned regimes, tracked while trading)",
+     "phase3-m4/trading-world/registry-m4/analyses/m4-verdict/verdict.json", "claude/phase3-m4"),
 ]
 
 GROUPS = {
@@ -45,10 +47,14 @@ GROUPS = {
            "MK2-S4": ("Model-based agent v2", "S4", 0.0)},
     "m3": {"MK3-S1C": ("Model-based agent v3", "S1C", None), "MK3-S2C": ("Model-based agent v3", "S2C", None),
            "MK3-S3": ("Model-based agent v3", "S3", 0.0), "MK3-S6": ("Model-based agent v3", "S6", 2.93)},
+    "m4": {"MK4-S1X": ("Model-based agent v4", "S1X", None), "MK4-S2X": ("Model-based agent v4", "S2X", None),
+           "MK4-S6X": ("Model-based agent v4", "S6X", None), "MK4-S1C": ("Model-based agent v4", "S1C", None),
+           "MK4-S6": ("Model-based agent v4", "S6", 2.93)},
 }
 MARKETS = {"S4": "No edge (random walk)", "S6": "Drift plus rare crashes", "S7": "Drift, no crashes",
            "S1C": "Bounce-back pattern, high trading costs", "S2C": "Announced trends, high trading costs",
-           "S3": "Pure noise with trading costs"}
+           "S3": "Pure noise with trading costs", "S1X": "Pattern that flips direction without warning",
+           "S2X": "Trend signal that flips meaning without warning", "S6X": "Calm spells and storms of crashes"}
 
 
 def num(x):
@@ -167,6 +173,19 @@ def main():
                f"{v3['MK3-S1C']['growth_mean']:+.1f} with costs weighed. Caveat: in S2C the agents earned "
                f"{100 * r2['growth_mean'] / r2['reference']['growth']:.0f}% of the true-parameter reference but died more often "
                f"({r2['deaths_total']} in 720 runs, against the reference's {r2['reference']['deaths']} in 120).")
+    m4 = {g["group"]: g for g in groups if g["experiment"] == "m4"}
+    if not m4:
+        st6, ev6 = "not started", ""
+    else:
+        v4 = json.loads((base / next(e[2] for e in EXPERIMENTS if e[0] == "m4")).read_text())["verdicts"]
+        st6 = "passed" if v4["M4_passes"] else "failed"
+        ev6 = ("M4: " + "; ".join(f"{m4[g]['market']} {m4[g]['successes']}/6" for g in ("MK4-S1X", "MK4-S2X", "MK4-S6X", "MK4-S1C", "MK4-S6"))
+               + f". Tracking regimes made pattern and trend flips profitable (S1X {v4['MK4-S1X']['growth_mean']:+.1f} per run against "
+               f"{v4['MK4-S1X']['ablation']['growth_mean']:+.1f} for the same agents' fixed model; S2X {v4['MK4-S2X']['growth_mean']:+.1f} "
+               f"against {v4['MK4-S2X']['ablation']['growth_mean']:+.1f}). Failed on calm/storm crash spells: half the agents did not "
+               "detect the storms (rare crashes give too little evidence for the model-choice test), and one S6 agent saw storms "
+               f"that were not there. S2X deaths stay high ({v4['MK4-S2X']['deaths_total']} in 720 runs), as for the reference that "
+               f"knows the rules ({v4['MK4-S2X']['reference']['deaths']} in 120).")
     roadmap = [
         dict(order=1, stage="Learning machinery and practice markets with known right answers", status="passed",
              evidence="Phase 2 gate, agent registry, decision replays (all below)"),
@@ -175,7 +194,7 @@ def main():
         dict(order=3, stage="Find the known best position size (S7)", status=st("MK2-S7"), evidence=ev3),
         dict(order=4, stage="Claim no edge where none exists (S4)", status=st("MK2-S4"), evidence=ev4),
         dict(order=5, stage="Profit from predictable patterns after trading costs (S1C, S2C, S3)", status=st5, evidence=ev5),
-        dict(order=6, stage="Adapt when the market changes", status="not started", evidence=""),
+        dict(order=6, stage="Adapt when the market changes (S1X, S2X, S6X)", status=st6, evidence=ev6),
         dict(order=7, stage="Real historical prices: train, then test once on sealed data", status="not started",
              evidence=f"Real data downloaded: {dl_done} of {dl_total} instrument-months"),
         dict(order=8, stage="Forward test on a demo account (simulated money, real prices)", status="not started",
