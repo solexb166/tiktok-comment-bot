@@ -184,6 +184,9 @@ def policy_for(reg: Registry, identity: dict, sha: str, task=None):
     if kind in ("model-kelly-v3", "model-kelly-v3-costblind"):
         from .model_kelly3 import load_policy
         return load_policy(reg.blobs, sha, identity, cost_blind=kind.endswith("costblind"))
+    if kind in ("model-kelly-v5", "model-kelly-v5-static"):
+        from .model_kelly5 import load_policy
+        return load_policy(reg.blobs, sha, identity, static_only=kind.endswith("static"))
     if kind in ("model-kelly-v4", "model-kelly-v4-static"):
         from .model_kelly4 import load_policy
         return load_policy(reg.blobs, sha, identity, static_only=kind.endswith("static"))
