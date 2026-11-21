@@ -1,0 +1,201 @@
+{
+ "agent_id": "ag-9d2cb479f7",
+ "changes": {},
+ "checkpoints": [
+  {
+   "kind": "periodic",
+   "model_sha256": "e96da4d17d9181ed5cee7f55a50a3a65363ce6876b86d729d3b282183ecd3d8b",
+   "note": "world model learned from the first 20,000 bars of experience",
+   "persistence": {
+    "rho": 0.0
+   },
+   "regimes": [
+    {
+     "beta": [
+      -1.1492593008611472e-11,
+      0.0,
+      -0.0,
+      0.0
+     ],
+     "mean_length": 1000000000000.0,
+     "vol_scale": 0.9975722847159928,
+     "weights": [
+      0.004562500000000005,
+      0.6709801957626056,
+      0.32445730423739444
+     ]
+    }
+   ],
+   "selection": {
+    "chosen": "K=1",
+    "components": 3,
+    "heldout_loglik": {
+     "K=1": 4.387947395754118,
+     "K=2": 4.387270854717543,
+     "K=3": 4.387583830957501
+    },
+    "regimes": 1,
+    "tests": {
+     "K2 vs K1": -2.4827023122090415,
+     "K3 vs K1": -2.3456693422943617
+    }
+   },
+   "shrinkage": {
+    "level": 1.4085940493014219e-05,
+    "level_se": 5.852954820963142e-05,
+    "level_shrink": 0.0,
+    "shift": -1.2535315183663548e-05,
+    "slope_shrink": 0.0,
+    "slope_wald": 1.2064479190025498e-05
+   },
+   "state_sha256": null,
+   "step": 20000
+  }
+ ],
+ "code_version": {
+  "dirty": false,
+  "git_commit": "4a9556404dcc747d0afa5d690bd339d6b2b3826b"
+ },
+ "final_checkpoint": {
+  "kind": "final",
+  "model_sha256": "18144ca109056aa5f507aeba8e619d2ce3731a5a1465450fb12458c8fb319260",
+  "note": "world model learned from the first 199,967 bars of experience",
+  "persistence": {
+   "rho": 0.9992619794441485
+  },
+  "regimes": [
+   {
+    "beta": [
+     1.5012326657460484e-12,
+     2.0121356233199025e-10,
+     8.20685157290513e-11,
+     -5.176312871202373e-10
+    ],
+    "mean_length": 7280.072416945318,
+    "vol_scale": 0.998048188596451,
+    "weights": [
+     0.0035056518195892357,
+     0.38776210889240686,
+     0.3827676238118897,
+     0.22596461547611424
+    ]
+   },
+   {
+    "beta": [
+     -3.2136895479441534e-13,
+     1.7829448543665834e-10,
+     1.33066858065817e-11,
+     2.6497925698340046e-11
+    ],
+    "mean_length": 1311.0741805234566,
+    "vol_scale": 0.989939394816251,
+    "weights": [
+     0.020289139397333338,
+     0.38688147678489077,
+     0.3761450942856343,
+     0.21668428953214167
+    ]
+   }
+  ],
+  "selection": {
+   "chosen": "K=2",
+   "components": 4,
+   "heldout_loglik": {
+    "K=1": 4.432400809206276,
+    "K=2": 4.435859622593754,
+    "K=3": 4.435852415486139
+   },
+   "regimes": 2,
+   "tests": {
+    "K2 vs K1": 7.630972127068242,
+    "K3 vs K2": -1.0573136907947365
+   }
+  },
+  "shrinkage": {
+   "level": -0.0001173720155464519,
+   "level_se": 2.0892015416159007e-05,
+   "level_shrink": 0.9683166167794113,
+   "shift": 7.202676402332799e-06,
+   "slope_shrink": 0.0,
+   "slope_wald": 4.311074097920775e-07
+  },
+  "state_sha256": null,
+  "step": 199967
+ },
+ "frozen": {
+  "action_space": {
+   "cap": null,
+   "log10_max": 4.0,
+   "log10_min": -4.0,
+   "size_repr": "log10"
+  },
+  "env_settings": {
+   "decision_interval": 1,
+   "obs_resolution": 1,
+   "window": 30
+  },
+  "episode_decisions": 1000,
+  "profile": "A_synthetic",
+  "reward": "R1",
+  "task": "S6X"
+ },
+ "history": {
+  "complete": true,
+  "episodes": 0,
+  "episodes_sha256": null,
+  "note": "component and regime selection history per amount of experience",
+  "updates": 14,
+  "updates_sha256": "3f5adf402f1b95a1aa695defae7d2a5428a7119c5e47f390123a7771dfedfed2"
+ },
+ "kind": "initial",
+ "parent_checkpoint": null,
+ "parent_version": null,
+ "reason": "phase3-m5: model-based agent v5 learning from experience",
+ "recorded_at": "2026-11-21T21:53:00Z",
+ "recovered_from": null,
+ "training": {
+  "algorithm": "model-based v5: regime-switching world model (several starting strategies, regimes last >= 50 bars) (Baum-Welch; number of regimes by held-out likelihood), tracked by forward filtering while trading; version 3's cost-aware decision",
+  "library": {
+   "numpy": "2.5.3",
+   "python": "3.13.18",
+   "torch": "2.15.0+cpu"
+  },
+  "market_columns": 181,
+  "model_config": {
+   "bisection_iters": 100,
+   "em_iters": 300,
+   "em_tol": 1e-09,
+   "init_block": 500,
+   "init_modes": [
+    "all",
+    "risk",
+    "pattern"
+   ],
+   "max_abs_size": 2000.0,
+   "max_components": 4,
+   "max_regimes": 3,
+   "min_spell": 50,
+   "min_vol_scale": 0.2,
+   "quad_nodes": 32,
+   "regime_iters": 40,
+   "regime_starts": 2,
+   "regime_tol": 1e-07,
+   "select_t": 2.0,
+   "val_frac": 0.2
+  },
+  "seed": 1008,
+  "step_end": 200000,
+  "step_start": 0,
+  "steps_added": 200000,
+  "train_data": [
+   {
+    "data_hash": "599656083f653c30cc82130b3a3595d222f527535eb33fb23664601975b5fb5c",
+    "seed": 1008,
+    "steps": 200000,
+    "task": "S6X"
+   }
+  ],
+  "wall_seconds": 700.9
+ },
+ "version": 1
+}
