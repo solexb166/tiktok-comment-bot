@@ -95,11 +95,15 @@ def run_recorded(policy, identity, task, starts) -> tuple[list[dict], list[dict]
     stats = []
     for i, k0 in enumerate(starts):
         o, info = env.reset(seed=i, options={"start_decision": int(k0)})
+        if hasattr(policy, "reset"):            # agents that keep state within a test run start every run afresh
+            policy.reset()
         e0 = info["equity"]
         first = len(env.rows)
         done = False
         while not done:
-            o, r, te, tr, info = env.step(policy(o))
+            # only labelled references (never agents) may ask for the decision row, to look up the true regime
+            a = policy(o, int(env.unwrapped.dec[env.unwrapped.k])) if getattr(policy, "reference_needs_row", False) else policy(o)
+            o, r, te, tr, info = env.step(a)
             done = te or tr
         rows = env.rows[first:]
         alive = [x for x in rows if x["alive_after"]]
@@ -167,7 +171,7 @@ def load_model(reg: Registry, sha: str):
     return PPO.load(io.BytesIO(reg.blobs.get(sha)), device="cpu")
 
 
-def policy_for(reg: Registry, identity: dict, sha: str):
+def policy_for(reg: Registry, identity: dict, sha: str, task=None):
     """The deterministic decision function of an evaluated checkpoint: a PPO policy (every agent without an
     `agent_type`, unchanged) or, for new model-based agents, the learned world model plus its sizing rule."""
     kind = identity.get("agent_type")
@@ -180,6 +184,17 @@ def policy_for(reg: Registry, identity: dict, sha: str):
     if kind in ("model-kelly-v3", "model-kelly-v3-costblind"):
         from .model_kelly3 import load_policy
         return load_policy(reg.blobs, sha, identity, cost_blind=kind.endswith("costblind"))
+    if kind in ("model-kelly-v4", "model-kelly-v4-static"):
+        from .model_kelly4 import load_policy
+        return load_policy(reg.blobs, sha, identity, static_only=kind.endswith("static"))
+    if kind == "reference-true-filter":
+        from .model_kelly4 import true_filter_policy
+        return true_filter_policy(identity)
+    if kind == "reference-oracle":
+        from .model_kelly4 import oracle_policy
+        if task is None:
+            raise RegistryError("the oracle reference needs the test data")
+        return oracle_policy(identity, task)
     if kind == "benchmark-constant":
         return constant_policy(identity)
     if kind == "reference-cost-aware":
@@ -216,7 +231,7 @@ def evaluate(reg: Registry, agent_id: str, version: int, round_id: str, *, check
     seed = round_test_seed(rnd, ident["task"], ident["original_seed"])
     task = st.build(ident["task"], seed, rnd.get("test_steps", TEST_STEPS_DATA))
     starts = test_starts(task, ident)
-    rows, stats = run_recorded(policy or policy_for(reg, ident, sha), ident, task, starts)
+    rows, stats = run_recorded(policy or policy_for(reg, ident, sha, task), ident, task, starts)
     run = dict(episodes=stats)
     if ident["task"] == "S1":
         run["null"] = null_distribution(ident, task, starts, stats)
@@ -286,7 +301,7 @@ def decision_log(reg: Registry, evaluation: dict) -> pd.DataFrame:
     task = st.build(td["task"], td["seed"], evaluation.get("test_steps", TEST_STEPS_DATA))
     if task.md.content_hash() != td["data_hash"]:
         raise RegistryError("test data no longer regenerates identically; cannot rebuild the decision log")
-    rows, _ = run_recorded(policy_for(reg, ident, evaluation["checkpoint_sha256"]), ident, task, td["episode_starts"])
+    rows, _ = run_recorded(policy_for(reg, ident, evaluation["checkpoint_sha256"], task), ident, task, td["episode_starts"])
     log = pd.DataFrame(rows)
     if log_fingerprint(log) != evaluation["decision_log_fingerprint"]:
         raise RegistryError("regenerated decision log does not match its fingerprint")

@@ -17,6 +17,14 @@ the agent acts on. Train and test markets come from different seeds (out-of-samp
 | S1C  | S1 with a 4x wider spread (0.4 sigma)                   | trades only moves worth their cost; profitable   |
 | S2C  | S2 with a spread wider than one bar's drift (1.0 sigma) | holds through regimes; profitable after costs    |
 
+| S1X  | S1C whose pattern flips (phi -0.3 <-> +0.3) at unannounced times | adapts to the current pattern       |
+| S2X  | S2C whose flag flips meaning at unannounced times       | adapts to the current meaning                    |
+| S6X  | S6 whose crash rate switches calm 1/300 <-> storm 1/50  | bets in calm spells, stands aside in storms      |
+
+S1X, S2X and S6X (Experiment M4) switch regime at unannounced times (geometric spell lengths: S1X/S2X mean 3,000 bars
+each way; S6X calm 6,000 and storm 1,500). The true regime in effect for the next bar is kept in `hidden`, which is
+never given to an agent (only to the labelled oracle reference).
+
 S1C and S2C (Experiment M3) are the same generators as S1 and S2 with costs high enough that trading every
 signal loses money: only an agent that weighs its edge against the cost (and, in S2C, against how long the
 edge lasts) can profit. Their random streams are seeded by their own names, so they never share data with S1/S2.
@@ -67,8 +75,56 @@ def _market(log_ret: np.ndarray, spread_frac: float, range_frac: float) -> Marke
                           range_bps=range_frac * 1e4)
 
 
+def _spells(rng, steps: int, first: float, second: float, mean_first: float, mean_second: float) -> np.ndarray:
+    out = np.empty(steps)
+    v, k = 0, 0
+    while k < steps:
+        n = int(rng.geometric(1.0 / (mean_first if v == 0 else mean_second)))
+        out[k:k + n] = first if v == 0 else second
+        v, k = 1 - v, k + n
+    return out
+
+
+def _switching(name: str, rng, steps: int) -> Task:
+    env_kwargs = dict(decision_interval=1, obs_resolution=1, window=30)
+    eps = rng.standard_normal(steps)
+    if name == "S1X":
+        spread = 0.4 * SIGMA
+        phi = _spells(rng, steps, -0.3, 0.3, 3000, 3000)
+        r = np.empty(steps)
+        prev = 0.0
+        for k in range(steps):
+            prev = phi[k] * prev + SIGMA * eps[k]
+            r[k] = prev
+        hidden = np.r_[phi[1:], phi[-1]][:, None]
+        return Task(name, _market(r, spread, 0.3 * SIGMA), profile(), hidden=hidden,
+                    params=dict(phi_values=(-0.3, 0.3), mean_spell=3000, sigma=SIGMA, spread=spread), env_kwargs=env_kwargs)
+    if name == "S2X":
+        mu, spread, mean_len = 0.15 * SIGMA, 1.0 * SIGMA, 400
+        sign = _spells(rng, steps, 1.0, -1.0, 3000, 3000)
+        flag = _spells(rng, steps, 1.0, -1.0, mean_len, mean_len)
+        r = sign * flag * mu + SIGMA * eps
+        visible = np.r_[flag[1:], flag[-1]][:, None]
+        hidden = np.r_[sign[1:], sign[-1]][:, None]
+        return Task(name, _market(r, spread, 0.3 * SIGMA), profile(), extra=visible, hidden=hidden,
+                    params=dict(mu=mu, sigma=SIGMA, spread=spread, mean_regime_len=mean_len, mean_spell=3000),
+                    env_kwargs=env_kwargs)
+    if name == "S6X":
+        mu, sigma, J = 5e-4, 3e-3, 0.10
+        p = _spells(rng, steps, 1 / 300, 1 / 50, 6000, 1500)
+        crash = rng.random(steps) < p
+        r = np.where(crash, math.log(1 - J), mu - 0.5 * sigma ** 2 + sigma * eps)
+        hidden = np.r_[p[1:], p[-1]][:, None]
+        return Task(name, _market(r, 0.0, 0.3 * sigma), profile(), hidden=hidden,
+                    params=dict(mu=mu, sigma=sigma, crash=J, crash_probs=(1 / 300, 1 / 50), mean_spells=(6000, 1500),
+                                spread=0.0), env_kwargs=env_kwargs)
+    raise ValueError(name)
+
+
 def build(name: str, seed: int, steps: int = 200_000) -> Task:
     rng = np.random.default_rng(np.random.SeedSequence([seed, stable_int(name) % (2 ** 31)]))
+    if name in SWITCHING_TASKS:
+        return _switching(name, rng, steps)
     eps = rng.standard_normal(steps)
     env_kwargs = dict(decision_interval=1, obs_resolution=1, window=30)
     if name in ("S1", "S1C"):
@@ -121,3 +177,4 @@ def build(name: str, seed: int, steps: int = 200_000) -> Task:
 
 TASKS = ("S1", "S2", "S3", "S4", "S5", "S6", "S7")
 COST_TASKS = ("S1C", "S2C")
+SWITCHING_TASKS = ("S1X", "S2X", "S6X")
