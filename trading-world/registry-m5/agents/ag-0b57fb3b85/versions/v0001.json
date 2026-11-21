@@ -1,0 +1,184 @@
+{
+ "agent_id": "ag-0b57fb3b85",
+ "changes": {},
+ "checkpoints": [
+  {
+   "kind": "periodic",
+   "model_sha256": "aca36eee9d53ce792ba799d95e9aebd7e96fa309db4c59757618002c773a5402",
+   "note": "world model learned from the first 20,000 bars of experience",
+   "persistence": {
+    "rho": -0.30266901362764653
+   },
+   "regimes": [
+    {
+     "beta": [
+      1.0969503814633596e-06,
+      -0.2970697857516647,
+      0.009537945786945431,
+      0.007359931156772937
+     ],
+     "mean_length": 1000000000000.0,
+     "vol_scale": 0.9503605489074518,
+     "weights": [
+      0.08319483874596914,
+      0.8478091473111227,
+      0.06899601394290822
+     ]
+    }
+   ],
+   "selection": {
+    "chosen": "K=1",
+    "components": 3,
+    "heldout_loglik": {
+     "K=1": 5.472118108610891,
+     "K=2": 5.472043390685434,
+     "K=3": 5.472024988099558
+    },
+    "regimes": 1,
+    "tests": {
+     "K2 vs K1": -0.591433280599615,
+     "K3 vs K1": -0.5648499095205292
+    }
+   },
+   "shrinkage": {
+    "level": 9.18469238276917e-06,
+    "level_se": 8.313918660594998e-06,
+    "level_shrink": 0.18062574932936515,
+    "shift": -9.945223235402119e-06,
+    "slope_shrink": 0.9995151670571556,
+    "slope_wald": 2062.5661163475625
+   },
+   "state_sha256": null,
+   "step": 20000
+  }
+ ],
+ "code_version": {
+  "dirty": false,
+  "git_commit": "571524bd73d8408c3c6cbb3a1f1b7ca043da0bca"
+ },
+ "final_checkpoint": {
+  "kind": "final",
+  "model_sha256": "975eca2fad6cef876e227c7d93079bd7cfc455e6ee632c5aac900cd346136900",
+  "note": "world model learned from the first 199,967 bars of experience",
+  "persistence": {
+   "rho": -0.3140728890834532
+  },
+  "regimes": [
+   {
+    "beta": [
+     -9.502727684060024e-07,
+     -0.2904653591295805,
+     0.003953886545455653,
+     0.002945588980486716
+    ],
+    "mean_length": 1000000000000.0,
+    "vol_scale": 0.9522219689770398,
+    "weights": [
+     0.07850475824892496,
+     0.8481389178988519,
+     0.07335632385222317
+    ]
+   }
+  ],
+  "selection": {
+   "chosen": "K=1",
+   "components": 3,
+   "heldout_loglik": {
+    "K=1": 5.484057662735844,
+    "K=2": 5.484060912629873,
+    "K=3": 5.48406449585325
+   },
+   "regimes": 1,
+   "tests": {
+    "K2 vs K1": 0.11487953846360154,
+    "K3 vs K1": 0.23589893063468453
+   }
+  },
+  "shrinkage": {
+   "level": 5.078105379069853e-07,
+   "level_se": 2.6151449986809752e-06,
+   "level_shrink": 0.0,
+   "shift": -5.151555281455793e-07,
+   "slope_shrink": 0.9999458313039167,
+   "slope_wald": 18460.846804614357
+  },
+  "state_sha256": null,
+  "step": 199967
+ },
+ "frozen": {
+  "action_space": {
+   "cap": null,
+   "log10_max": 4.0,
+   "log10_min": -4.0,
+   "size_repr": "log10"
+  },
+  "env_settings": {
+   "decision_interval": 1,
+   "obs_resolution": 1,
+   "window": 30
+  },
+  "episode_decisions": 1000,
+  "profile": "A_synthetic",
+  "reward": "R1",
+  "task": "S1C"
+ },
+ "history": {
+  "complete": true,
+  "episodes": 0,
+  "episodes_sha256": null,
+  "note": "component and regime selection history per amount of experience",
+  "updates": 14,
+  "updates_sha256": "44ce70ca3f3bbf5e3403c7040adeee08067fefe3b65d36643523dde17bc9c252"
+ },
+ "kind": "initial",
+ "parent_checkpoint": null,
+ "parent_version": null,
+ "reason": "phase3-m5: model-based agent v5 learning from experience",
+ "recorded_at": "2026-11-21T20:59:06Z",
+ "recovered_from": null,
+ "training": {
+  "algorithm": "model-based v5: regime-switching world model (several starting strategies, regimes last >= 50 bars) (Baum-Welch; number of regimes by held-out likelihood), tracked by forward filtering while trading; version 3's cost-aware decision",
+  "library": {
+   "numpy": "2.5.3",
+   "python": "3.13.18",
+   "torch": "2.15.0+cpu"
+  },
+  "market_columns": 181,
+  "model_config": {
+   "bisection_iters": 100,
+   "em_iters": 300,
+   "em_tol": 1e-09,
+   "init_block": 500,
+   "init_modes": [
+    "all",
+    "risk",
+    "pattern"
+   ],
+   "max_abs_size": 2000.0,
+   "max_components": 4,
+   "max_regimes": 3,
+   "min_spell": 50,
+   "min_vol_scale": 0.2,
+   "quad_nodes": 32,
+   "regime_iters": 40,
+   "regime_starts": 2,
+   "regime_tol": 1e-07,
+   "select_t": 2.0,
+   "val_frac": 0.2
+  },
+  "seed": 1014,
+  "step_end": 200000,
+  "step_start": 0,
+  "steps_added": 200000,
+  "train_data": [
+   {
+    "data_hash": "9b976f7ba19d0e8de6efb0eec9d18f6a4b644272e767bd0dfabba5ba24da5219",
+    "seed": 1014,
+    "steps": 200000,
+    "task": "S1C"
+   }
+  ],
+  "wall_seconds": 552.9
+ },
+ "version": 1
+}
