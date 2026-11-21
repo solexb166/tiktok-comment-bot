@@ -1,0 +1,201 @@
+{
+ "agent_id": "ag-c0ef1f141d",
+ "changes": {},
+ "checkpoints": [
+  {
+   "kind": "periodic",
+   "model_sha256": "8b60b18545f7f667764892ab8928c7b46267b8b714c29cfe4a7459c736d16bd9",
+   "note": "world model learned from the first 20,000 bars of experience",
+   "persistence": {
+    "rho": -0.1495413700610081
+   },
+   "regimes": [
+    {
+     "beta": [
+      1.917393889493319e-06,
+      -0.29002405641463747,
+      0.01286732736807664,
+      0.002724417980545981
+     ],
+     "mean_length": 7975.327924768939,
+     "vol_scale": 0.954386845980707,
+     "weights": [
+      1.0
+     ]
+    },
+    {
+     "beta": [
+      3.2337036220361567e-06,
+      0.08829787845109381,
+      0.023720817127744924,
+      0.011817574931880534
+     ],
+     "mean_length": 229.53463339681966,
+     "vol_scale": 1.0607704100465443,
+     "weights": [
+      1.0
+     ]
+    }
+   ],
+   "selection": {
+    "chosen": "K=2",
+    "components": 1,
+    "heldout_loglik": {
+     "K=1": 5.356102306675557,
+     "K=2": 5.468935065794405,
+     "K=3": 5.468917648660783
+    },
+    "regimes": 2,
+    "tests": {
+     "K2 vs K1": 16.793652774952818,
+     "K3 vs K2": -0.11419962776144228
+    }
+   },
+   "shrinkage": {
+    "level": 7.988849662822078e-06,
+    "level_se": 8.223443286786287e-06,
+    "level_shrink": 0.0,
+    "shift": -9.855625522281667e-06,
+    "slope_shrink": 0.9992916657303489,
+    "slope_wald": 1411.7628397290428
+   },
+   "state_sha256": null,
+   "step": 20000
+  }
+ ],
+ "code_version": {
+  "dirty": false,
+  "git_commit": "860e85a80244712e9aeb34301c665d4e219834a8"
+ },
+ "final_checkpoint": {
+  "kind": "final",
+  "model_sha256": "f2a7368329a7f43cbbaf5d9ecef5347a87e7f5f26945fab651cb866710a43283",
+  "note": "world model learned from the first 199,967 bars of experience",
+  "persistence": {
+   "rho": 0.09394345626700643
+  },
+  "regimes": [
+   {
+    "beta": [
+     2.9106160645337997e-06,
+     -0.304190151479584,
+     0.001637492057970201,
+     0.003831717625936985
+    ],
+    "mean_length": 4147.1470894127915,
+    "vol_scale": 0.9463245429243422,
+    "weights": [
+     0.4945976997973918,
+     0.5054023002026082
+    ]
+   },
+   {
+    "beta": [
+     -2.3568050561101776e-06,
+     0.2998762928838541,
+     0.0024996342943918045,
+     -0.0019193656511854813
+    ],
+    "mean_length": 3176.501677702963,
+    "vol_scale": 0.949269224519717,
+    "weights": [
+     0.4947756816547853,
+     0.5052243183452146
+    ]
+   }
+  ],
+  "selection": {
+   "chosen": "K=2",
+   "components": 2,
+   "heldout_loglik": {
+    "K=1": 5.436769891582614,
+    "K=2": 5.481883167098543,
+    "K=3": 5.48185628080598
+   },
+   "regimes": 2,
+   "tests": {
+    "K2 vs K1": 30.118170256769414,
+    "K3 vs K2": -1.1690249735929474
+   }
+  },
+  "shrinkage": {
+   "level": -5.516727981810848e-07,
+   "level_se": 2.6178203361455794e-06,
+   "level_shrink": 0.0,
+   "shift": 5.034429804751894e-07,
+   "slope_shrink": 0.9994727547652866,
+   "slope_wald": 1896.6506175132697
+  },
+  "state_sha256": null,
+  "step": 199967
+ },
+ "frozen": {
+  "action_space": {
+   "cap": null,
+   "log10_max": 4.0,
+   "log10_min": -4.0,
+   "size_repr": "log10"
+  },
+  "env_settings": {
+   "decision_interval": 1,
+   "obs_resolution": 1,
+   "window": 30
+  },
+  "episode_decisions": 1000,
+  "profile": "A_synthetic",
+  "reward": "R1",
+  "task": "S1X"
+ },
+ "history": {
+  "complete": true,
+  "episodes": 0,
+  "episodes_sha256": null,
+  "note": "component and regime selection history per amount of experience",
+  "updates": 14,
+  "updates_sha256": "cbaa039e54887e2942f997f4c30dd97071859b37dbbb5a3c116ace2626acc66e"
+ },
+ "kind": "initial",
+ "parent_checkpoint": null,
+ "parent_version": null,
+ "reason": "phase3-m4: model-based agent v4 learning from experience",
+ "recorded_at": "2026-11-21T17:27:31Z",
+ "recovered_from": null,
+ "training": {
+  "algorithm": "model-based v4: regime-switching world model (Baum-Welch; number of regimes by held-out likelihood), tracked by forward filtering while trading; version 3's cost-aware decision",
+  "library": {
+   "numpy": "2.5.3",
+   "python": "3.13.18",
+   "torch": "2.15.0+cpu"
+  },
+  "market_columns": 181,
+  "model_config": {
+   "bisection_iters": 100,
+   "em_iters": 300,
+   "em_tol": 1e-09,
+   "init_block": 500,
+   "max_abs_size": 2000.0,
+   "max_components": 4,
+   "max_regimes": 3,
+   "quad_nodes": 32,
+   "regime_iters": 40,
+   "regime_starts": 4,
+   "regime_tol": 1e-07,
+   "select_t": 2.0,
+   "val_frac": 0.2
+  },
+  "seed": 1001,
+  "step_end": 200000,
+  "step_start": 0,
+  "steps_added": 200000,
+  "train_data": [
+   {
+    "data_hash": "57c50c721b6758e795ad1511f42ed1087fa91fab3d7ece21ddd4be82b049d33e",
+    "seed": 1001,
+    "steps": 200000,
+    "task": "S1X"
+   }
+  ],
+  "wall_seconds": 361.1
+ },
+ "version": 1
+}
