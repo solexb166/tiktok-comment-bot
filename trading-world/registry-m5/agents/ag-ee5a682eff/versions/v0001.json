@@ -1,0 +1,212 @@
+{
+ "agent_id": "ag-ee5a682eff",
+ "changes": {},
+ "checkpoints": [
+  {
+   "kind": "periodic",
+   "model_sha256": "462bfdfeb1b8051f16fbb7d0e2ecb48fb7ed5e7ef16908a99c3c2845c2107125",
+   "note": "world model learned from the first 20,000 bars of experience",
+   "persistence": {
+    "rho": -0.21650172088454867
+   },
+   "regimes": [
+    {
+     "beta": [
+      -1.682847040827738e-05,
+      -0.30247670776139995,
+      -0.002132286229947682,
+      0.003942850407796639
+     ],
+     "mean_length": 3598.296850826239,
+     "vol_scale": 0.9191375213758786,
+     "weights": [
+      0.05612363293251537,
+      0.4250018223312858,
+      0.45505155594331514,
+      0.06382298879288374
+     ]
+    },
+    {
+     "beta": [
+      7.645098292153593e-06,
+      0.30555308945105764,
+      -0.012410021993328595,
+      0.0064629002906617964
+     ],
+     "mean_length": 4278.468813469575,
+     "vol_scale": 0.9504376642656964,
+     "weights": [
+      0.04025495551720718,
+      0.45264153650848105,
+      0.4565815466044217,
+      0.050521961369890116
+     ]
+    }
+   ],
+   "selection": {
+    "chosen": "K=2",
+    "components": 4,
+    "heldout_loglik": {
+     "K=1": 5.450349414975484,
+     "K=2": 5.488349372890352,
+     "K=3": 5.487943496089955
+    },
+    "regimes": 2,
+    "tests": {
+     "K2 vs K1": 8.259100550471828,
+     "K3 vs K2": -1.0291675020348363
+    }
+   },
+   "shrinkage": {
+    "level": 5.719895233964405e-06,
+    "level_se": 8.311995956316361e-06,
+    "level_shrink": 0.0,
+    "shift": -5.083879601750633e-06,
+    "slope_shrink": 0.9943767536254708,
+    "slope_wald": 177.83321828642576
+   },
+   "state_sha256": null,
+   "step": 20000
+  }
+ ],
+ "code_version": {
+  "dirty": false,
+  "git_commit": "3a9e38aaf05d5ba33263562f5de13675f75870e4"
+ },
+ "final_checkpoint": {
+  "kind": "final",
+  "model_sha256": "a0328d00314c9b96631f11da637a94f92fb72529f5352d166e9bb35434df4a43",
+  "note": "world model learned from the first 199,967 bars of experience",
+  "persistence": {
+   "rho": -0.05578775257466261
+  },
+  "regimes": [
+   {
+    "beta": [
+     6.924777820132334e-07,
+     -0.2981430427825806,
+     0.00245818122590537,
+     0.005377328286364258
+    ],
+    "mean_length": 3177.7943528361106,
+    "vol_scale": 0.9543066297471431,
+    "weights": [
+     1.0
+    ]
+   },
+   {
+    "beta": [
+     -8.371038455476492e-08,
+     0.2999490041057635,
+     -0.00328815097793604,
+     -0.0007702711777329506
+    ],
+    "mean_length": 3032.6750987175064,
+    "vol_scale": 0.954219394913534,
+    "weights": [
+     1.0
+    ]
+   }
+  ],
+  "selection": {
+   "chosen": "K=2",
+   "components": 1,
+   "heldout_loglik": {
+    "K=1": 5.446744567536696,
+    "K=2": 5.484758778538567,
+    "K=3": 5.484746084414994
+   },
+   "regimes": 2,
+   "tests": {
+    "K2 vs K1": 27.338209112500888,
+    "K3 vs K2": -0.31181502861181387
+   }
+  },
+  "shrinkage": {
+   "level": -1.8365032913718209e-06,
+   "level_se": 2.62354137153157e-06,
+   "level_shrink": 0.0,
+   "shift": 1.6424629281866578e-06,
+   "slope_shrink": 0.9992024586718667,
+   "slope_wald": 1253.8535179621026
+  },
+  "state_sha256": null,
+  "step": 199967
+ },
+ "frozen": {
+  "action_space": {
+   "cap": null,
+   "log10_max": 4.0,
+   "log10_min": -4.0,
+   "size_repr": "log10"
+  },
+  "env_settings": {
+   "decision_interval": 1,
+   "obs_resolution": 1,
+   "window": 30
+  },
+  "episode_decisions": 1000,
+  "profile": "A_synthetic",
+  "reward": "R1",
+  "task": "S1X"
+ },
+ "history": {
+  "complete": true,
+  "episodes": 0,
+  "episodes_sha256": null,
+  "note": "component and regime selection history per amount of experience",
+  "updates": 14,
+  "updates_sha256": "29683211890bbd97bd4c3288549872225399ecb94dd6e4cc2384f712348ff4ce"
+ },
+ "kind": "initial",
+ "parent_checkpoint": null,
+ "parent_version": null,
+ "reason": "phase3-m5: model-based agent v5 learning from experience",
+ "recorded_at": "2026-11-21T21:09:28Z",
+ "recovered_from": null,
+ "training": {
+  "algorithm": "model-based v5: regime-switching world model (several starting strategies, regimes last >= 50 bars) (Baum-Welch; number of regimes by held-out likelihood), tracked by forward filtering while trading; version 3's cost-aware decision",
+  "library": {
+   "numpy": "2.5.3",
+   "python": "3.13.18",
+   "torch": "2.15.0+cpu"
+  },
+  "market_columns": 181,
+  "model_config": {
+   "bisection_iters": 100,
+   "em_iters": 300,
+   "em_tol": 1e-09,
+   "init_block": 500,
+   "init_modes": [
+    "all",
+    "risk",
+    "pattern"
+   ],
+   "max_abs_size": 2000.0,
+   "max_components": 4,
+   "max_regimes": 3,
+   "min_spell": 50,
+   "min_vol_scale": 0.2,
+   "quad_nodes": 32,
+   "regime_iters": 40,
+   "regime_starts": 2,
+   "regime_tol": 1e-07,
+   "select_t": 2.0,
+   "val_frac": 0.2
+  },
+  "seed": 1007,
+  "step_end": 200000,
+  "step_start": 0,
+  "steps_added": 200000,
+  "train_data": [
+   {
+    "data_hash": "44dd44779408d36a7671b4f695c3bf831d437679297ecf16b9bf57b072505821",
+    "seed": 1007,
+    "steps": 200000,
+    "task": "S1X"
+   }
+  ],
+  "wall_seconds": 396.6
+ },
+ "version": 1
+}
