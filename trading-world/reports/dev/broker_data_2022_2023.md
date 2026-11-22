@@ -153,3 +153,38 @@ Remaining sources of return to test next, all learned by the agent itself, with 
 - the long-run drift of each market, learned over the long history with estimation risk;
 - volatility timing (size by predicted risk);
 - the broker's swap (carry) on held positions.
+
+## Learned drift with volatility sizing, after the broker's swap (`drift_vol.py`)
+
+Daily bars. Walk-forward by year: the agent learns from all earlier years and trades year Y. It has two world models,
+a constant mean in units of predicted volatility ("sharpe") or a constant mean ("level"). It picks one itself by
+replaying the last 30% of its training history. The mean is shrunk with positive-part James–Stein and a block-bootstrap
+standard error. Each day the agent chooses the growth-optimal, cost-aware exposure after paying the broker's
+**current** swap; past swaps differed, so this is an approximation.
+
+Exness swap per day, as a fraction of notional:
+
+| Market | Long | Short |
+|---|---|---|
+| EUR/USD | −0.50 bp | 0 |
+| GBP/USD | −0.11 bp | −0.11 bp |
+| USD/JPY | 0 | 0 |
+| Gold | −2.09 bp | 0 |
+| Bitcoin | −3.15 bp | 0 |
+| Nasdaq | −3.35 bp | 0 |
+
+Holding gold, bitcoin or Nasdaq long costs about 8–12% a year.
+
+| Market | Agent, 2017–2022 | Buy & hold 1× with swap | Agent, 2023 (validation) |
+|---|---|---|---|
+| EUR/USD | −1.57 | −0.08 | 0 |
+| GBP/USD | −1.06 | −0.04 | 0 |
+| USD/JPY | 0 | +0.11 | 0 |
+| Gold | 0 | 0.00 | 0 |
+| Bitcoin (2020–22) | 0 | +0.49 | 0 |
+| Nasdaq (2022) | −0.94 | −0.52 | 0 |
+
+No market shows a drift that both survives estimation risk and pays the swap. When the agent did bet, it lost. The
+worst was EUR/USD in 2017: about 8× short on a "level" mean with t ≈ 1.5, losing 76%. Positive-part James–Stein on a
+single estimate keeps 1 − 1/t² of it, which is still too trusting at t ≈ 1.5. A skeptical prior pooled across markets
+(empirical Bayes, shrinking toward what drifts across all markets look like) is the principled fix.
