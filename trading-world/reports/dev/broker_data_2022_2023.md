@@ -61,3 +61,46 @@ On hourly decisions no edge survives both a changing market and costs. Next step
 3. **Pooled learning.** One agent learns across all six markets, giving more evidence per decision.
 4. **Measured slippage.** Environment A's slippage is an assumption; real Exness slippage will be measured on the demo
    and replace it.
+
+## Version 7: self-chosen speed, learned costs (2023, validation split)
+
+Each month the agent replays its last 3 months as if live. It does this at 15-minute, hourly, 4-hour and daily speed,
+first measuring the cost it actually paid per unit traded (spread + slippage), then replaying again charging that
+cost. It keeps the speed that grew most. If none grew, it stays out. It then learns from all its history at that speed
+and trades the month. There is no rule on how often to trade.
+
+Fixes found while building it:
+
+- Inputs that never vary at a speed (time of day at daily speed) are dropped.
+- Inputs are put on a common scale.
+- Inputs are held inside the range the agent has seen. Daily predictions of +156% a day had produced 175× bets.
+
+| Market | Hourly version, 2023 | Version 7, 2023 | Months traded |
+|---|---|---|---|
+| EUR/USD | −1.784 | +0.443 | 1 (February, 15m, ~17×) |
+| GBP/USD | −0.226 | −0.046 | 1 (December, 15m, ~2×) |
+| USD/JPY | +0.026 | 0 | 0 |
+| Gold | −0.515 | 0 | 0 |
+| Bitcoin | −0.814 | (running) | |
+| Nasdaq | +0.049 | (running) | |
+
+Version 7 stops the losses, mostly by staying out. It traded 2 of 48 market-months. Most months its replay found a
+speed that grew, but when it relearned on all its history, the forward check rejected the edge. The edges are too weak
+to trust.
+
+## Pooled edge check across all six markets (`pool_check.py`)
+
+Each market's returns and inputs are scaled by its own causal volatility, using the last 1440 quoted minutes. One ridge
+model is fitted on 2022 and predicts 2023 one bar ahead.
+
+| Speed | Out-of-sample slope ± block-bootstrap SE | Median predicted edge / median half spread (in σ) |
+|---|---|---|
+| 60m | −0.73 ± 0.42 | 0.022 / 0.051 |
+| 240m | +0.13 ± 0.25 | 0.045 / 0.025 |
+| 1440m | +0.20 ± 0.39 | 0.116 / 0.010 |
+
+At hourly speed the edge is smaller than the cost and points the wrong way out of sample. At 4-hour and daily speed the
+cost is small next to the predicted edge, but one year of training (about 1,900 pooled daily bars) is too little
+evidence to separate an edge from noise. **The limiting factor at slow speeds is the length of history.** The next data
+step is `scripts/mt5_export_history.py`: H1/H4/D1 bars for as many years as the broker holds. Everything before 2023 is
+inside the frozen train split.
