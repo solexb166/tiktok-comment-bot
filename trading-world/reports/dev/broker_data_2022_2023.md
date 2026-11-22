@@ -24,8 +24,10 @@ learn from all earlier data, then trade the month once.
 | EUR/USD | −3.43 | 6 / 10 / 5 |
 | Gold | −0.40 | 3 / 2 / 16 |
 | USD/JPY | +0.06 | 2 / 0 / 19 |
+| Nasdaq | −0.30 | 2 / 2 / 17 |
+| Bitcoin | −1.47 | 2 / 3 / 16 |
 
-Nasdaq and bitcoin are still to be added.
+Over the six markets the total is −12.88: five lose and one is flat. On Nasdaq and bitcoin the forward check kept the robot out of most months; it traded only when an edge seemed to hold up, and most of those months still lost.
 
 ## Cost breakdown of one losing month
 
