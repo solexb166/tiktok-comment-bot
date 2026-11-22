@@ -7,12 +7,14 @@ measure assumed its return mixture was exact (a Wald statistic of about 10^6 on 
 
 Version 6 keeps version 5's world model and adds one step, learned from the agent's own experience: it trusts a
 predicted edge only as far as such edges held up on experience it did not fit.
-  * Held-out check: on the chronologically last 20% of experience (never used to fit the model), the realised simple
-    return is regressed THROUGH THE ORIGIN on the model's whole predicted edge, trend included (filtered one step
+  * Forward check: the agent replays its own history as if live - for each of several stretches (from 55%, 70% and 85%
+    of its experience onward) it learns from everything before the stretch, exactly as it learns, and predicts the
+    stretch one step ahead. On all these predictions pooled, the realised simple return is regressed THROUGH THE ORIGIN on the model's whole predicted edge, trend included (filtered one step
     ahead, exactly as when trading): slope b. (A first development version checked the trend separately, by whether the
     held-out average return was significant; a rolling walk-forward on real 2022 data showed that lets a past trend
     through even when the learned trend did not continue, with 25-90x bets. The through-origin check asks the right
-    question: did what the model predicted, trend included, continue?)
+    question: did what the model predicted, trend included, continue? A single last-20% slice was also too little
+    evidence: weak edges passed partly and were bet at 11-26x; pooling three forward stretches roughly triples it.)
   * Robust uncertainty: the standard error of b is measured by a moving-block bootstrap (blocks of
     BLOCK bars, BOOT resamples, fixed seed), which respects volatility clustering, fat tails and serial dependence;
     nothing assumes the model is exact.
@@ -37,7 +39,8 @@ from .model_kelly5 import oracle_policy, true_model  # noqa: F401  (references)
 
 BLOCK = 100
 BOOT = 400
-CONFIG = dict(mk5.CONFIG, check_block=BLOCK, check_boot=BOOT)
+FOLDS = (0.55, 0.70, 0.85)
+CONFIG = dict(mk5.CONFIG, check_block=BLOCK, check_boot=BOOT, check_folds=FOLDS)
 
 
 def _edges(model: dict, pred: np.ndarray, X: np.ndarray) -> np.ndarray:
@@ -79,22 +82,48 @@ def held_out_check(edge: np.ndarray, realised: np.ndarray, block: int, boot: int
                 mean_edge=float(edge.mean()), realised_mean=float(realised.mean()))
 
 
+def forward_folds(X: np.ndarray, y: np.ndarray, seed: int, c: dict) -> dict:
+    """Replay the agent's own history as if live: for each fold start a, learn from everything before a (exactly as the
+    agent learns), then predict the stretch up to the next fold start, filtering one step ahead as when trading.
+    Returns, for the regime model and for the single-regime model, pooled predicted edges, realised simple returns and
+    per-fold summaries."""
+    starts = [int(len(y) * f) for f in c["check_folds"]] + [len(y)]
+    out = {key: ([], [], []) for key in ("model", "static")}
+    sub = {k: v for k, v in c.items() if k in mk5.CONFIG}
+    for a, b in zip(starts[:-1], starts[1:]):
+        art_f, _ = mk5.learn(X[:a], y[:a], seed, sub)
+        r = np.expm1(y[a:b])
+        for key in ("model", "static"):
+            mod = art_f[key]
+            pred, _ = filter_predictive(mod, y[:b], X[:b])
+            e = _edges(mod, pred[a:b], X[a:b])
+            out[key][0].append(e)
+            out[key][1].append(r)
+            out[key][2].append(dict(start=a, end=b, regimes=int(mod["K"]),
+                                    corr=float(np.corrcoef(e, r)[0, 1]) if e.std() > 0 else 0.0))
+    return {key: (np.concatenate(E), np.concatenate(R), info) for key, (E, R, info) in out.items()}
+
+
 def learn(X: np.ndarray, y: np.ndarray, seed: int, config: dict = CONFIG) -> tuple[dict, list[dict]]:
+    """Version 5's learning on all experience, then the forward check: the same learning procedure replayed on the
+    agent's own history (several stretches, each predicted by a model that never saw it); the kept fraction applies
+    to the final model's predictions."""
     c = dict(config)
     art, hist = mk5.learn(X, y, seed, {k: v for k, v in c.items() if k in mk5.CONFIG})
     y = np.asarray(y, np.float64)
     X = np.asarray(X, np.float64)
-    cut = int(len(y) * (1 - c["val_frac"]))
+    folds = forward_folds(X, y, seed, c)
     for key, pkey in (("model", "persistence"), ("static", "static_persistence")):
-        mod = art[key]
-        pred, _ = filter_predictive(mod, y, X)
-        e = _edges(mod, pred, X)
-        chk = held_out_check(e[cut:], np.expm1(y[cut:]), c["check_block"], c["check_boot"])
+        e, r, info = folds[key]
+        chk = held_out_check(e, r, c["check_block"], c["check_boot"])
+        chk["folds"] = info
         art[f"{key}_check"] = chk
-        ec = chk["k"] * e[cut:]
+        pred, _ = filter_predictive(art[key], y, X)
+        tail = slice(int(len(y) * c["check_folds"][-1]), len(y))
+        ec = chk["k"] * _edges(art[key], pred[tail], X[tail])
         rho = float(np.corrcoef(ec[:-1], ec[1:])[0, 1]) if ec.std() > 0 else 0.0
         art[pkey] = dict(rho=rho if math.isfinite(rho) else 0.0)
-    art["config"] = dict(art["config"], check_block=c["check_block"], check_boot=c["check_boot"])
+    art["config"] = dict(art["config"], check_block=c["check_block"], check_boot=c["check_boot"], check_folds=list(c["check_folds"]))
     return art, hist
 
 
