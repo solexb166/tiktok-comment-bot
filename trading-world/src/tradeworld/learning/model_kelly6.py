@@ -8,14 +8,16 @@ measure assumed its return mixture was exact (a Wald statistic of about 10^6 on 
 Version 6 keeps version 5's world model and adds one step, learned from the agent's own experience: it trusts a
 predicted edge only as far as such edges held up on experience it did not fit.
   * Held-out check: on the chronologically last 20% of experience (never used to fit the model), the realised simple
-    return is regressed on the model's predicted edge (filtered one step ahead, exactly as when trading): slope b and
-    the average realised return (level).
-  * Robust uncertainty: the standard errors of b and of the level are measured by a moving-block bootstrap (blocks of
+    return is regressed THROUGH THE ORIGIN on the model's whole predicted edge, trend included (filtered one step
+    ahead, exactly as when trading): slope b. (A first development version checked the trend separately, by whether the
+    held-out average return was significant; a rolling walk-forward on real 2022 data showed that lets a past trend
+    through even when the learned trend did not continue, with 25-90x bets. The through-origin check asks the right
+    question: did what the model predicted, trend included, continue?)
+  * Robust uncertainty: the standard error of b is measured by a moving-block bootstrap (blocks of
     BLOCK bars, BOOT resamples, fixed seed), which respects volatility clustering, fat tails and serial dependence;
     nothing assumes the model is exact.
-  * Shrinkage (positive-part James-Stein): k = max(0, 1 - SE_b^2 / b^2) * min(b, 1); level kept in proportion
-    max(0, 1 - SE_level^2 / level^2). Every prediction's edge becomes level_kept + k * (edge - average predicted edge),
-    applied by shifting its predictive mixture (all regimes, all components) by one common amount.
+  * Shrinkage (positive-part James-Stein): k = max(0, 1 - SE_b^2 / b^2) * min(b, 1). Every prediction's edge becomes
+    k * edge, applied by shifting its predictive mixture (all regimes, all components) by one common amount.
   Effects that are real and large (the synthetic markets) give b near 1 with a small error, so almost nothing changes;
   effects that do not hold up out of sample are shrunk towards no edge, so the agent bets little or stays out.
 Persistence is measured on the corrected edges. Decision, regime tracking and everything else are version 5's.
@@ -60,22 +62,21 @@ def block_bootstrap(stat, n: int, block: int, boot: int, seed: int = 0) -> np.nd
 
 
 def held_out_check(edge: np.ndarray, realised: np.ndarray, block: int, boot: int) -> dict:
-    e = edge - edge.mean()
-    v = float((e ** 2).sum())
-    level = float(realised.mean())
+    """Does the model's WHOLE predicted edge (trend included) hold up on experience it did not fit? Through-origin slope
+    of realised simple return on predicted edge, b = sum(e r) / sum(e^2), with a moving-block-bootstrap standard error;
+    kept fraction k = max(0, 1 - SE^2 / b^2) * min(b, 1) (0 if b <= 0). A trend learned in the fitted period that did not
+    continue in the held-out period gives b near 0, so it is not bet on."""
+    v = float((edge ** 2).sum())
 
     def slope(idx):
-        ee = edge[idx] - edge[idx].mean()
-        vv = float((ee ** 2).sum())
-        return float((ee * (realised[idx] - realised[idx].mean())).sum() / vv) if vv > 0 else 0.0
+        vv = float((edge[idx] ** 2).sum())
+        return float((edge[idx] * realised[idx]).sum() / vv) if vv > 0 else 0.0
 
-    b = float((e * (realised - realised.mean())).sum() / v) if v > 0 else 0.0
-    se_b = float(np.std(block_bootstrap(slope, len(edge), block, boot, 1), ddof=1)) if v > 0 else math.inf
-    se_l = float(np.std(block_bootstrap(lambda idx: float(realised[idx].mean()), len(edge), block, boot, 2), ddof=1))
-    k = (max(0.0, 1.0 - se_b ** 2 / b ** 2) * min(b, 1.0)) if (b > 0 and math.isfinite(se_b)) else 0.0
-    kl = max(0.0, 1.0 - se_l ** 2 / level ** 2) if level != 0 else 0.0
-    return dict(slope=b, slope_se=se_b, slope_t=b / se_b if se_b > 0 else math.inf, k=k, level=level, level_se=se_l,
-                level_t=level / se_l if se_l > 0 else math.inf, level_kept=kl, n=int(len(edge)), block=block, boot=boot)
+    b = float((edge * realised).sum() / v) if v > 0 else 0.0
+    se = float(np.std(block_bootstrap(slope, len(edge), block, boot, 1), ddof=1)) if v > 0 else math.inf
+    k = (max(0.0, 1.0 - se ** 2 / b ** 2) * min(b, 1.0)) if (b > 0 and math.isfinite(se) and se > 0) else 0.0
+    return dict(slope=b, slope_se=se, slope_t=b / se if se > 0 else math.inf, k=k, n=int(len(edge)), block=block, boot=boot,
+                mean_edge=float(edge.mean()), realised_mean=float(realised.mean()))
 
 
 def learn(X: np.ndarray, y: np.ndarray, seed: int, config: dict = CONFIG) -> tuple[dict, list[dict]]:
@@ -89,9 +90,8 @@ def learn(X: np.ndarray, y: np.ndarray, seed: int, config: dict = CONFIG) -> tup
         pred, _ = filter_predictive(mod, y, X)
         e = _edges(mod, pred, X)
         chk = held_out_check(e[cut:], np.expm1(y[cut:]), c["check_block"], c["check_boot"])
-        chk["mean_edge"] = float(e[:cut].mean())
         art[f"{key}_check"] = chk
-        ec = chk["level_kept"] * chk["level"] + chk["k"] * (e[cut:] - chk["mean_edge"])
+        ec = chk["k"] * e[cut:]
         rho = float(np.corrcoef(ec[:-1], ec[1:])[0, 1]) if ec.std() > 0 else 0.0
         art[pkey] = dict(rho=rho if math.isfinite(rho) else 0.0)
     art["config"] = dict(art["config"], check_block=c["check_block"], check_boot=c["check_boot"])
@@ -113,8 +113,7 @@ class Agent(mk5.Agent):
         self.x_prev = x
         w, mu, sd = mixture(self.model, self.p, x)
         edge = float(np.sum(w * (np.exp(mu + 0.5 * sd ** 2) - 1.0)))
-        c = self.check
-        target = c["level_kept"] * c["level"] + c["k"] * (edge - c["mean_edge"])
+        target = self.check["k"] * edge
         mu = mk3.shift_to(w[None, :], mu[None, :], sd[None, :], np.array([target]))[0]
         G, _, _ = mk3.decide(w[None, :], mu[None, :], sd[None, :], np.array([self.reader.exposure(obs)]),
                              self.reader.half_spread(obs) * (1.0 - self.rho), self.z, self.wq, self.gmax, self.iters)

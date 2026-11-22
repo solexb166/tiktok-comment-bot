@@ -178,7 +178,10 @@ def fit_regimes(y, X, m, s, pi0, K, c, seed=0, mode="all") -> dict:
             sw = wk.sum(1)
             tgt = (wk * (y[:, None] - m[None, :])).sum(1)
             M = (X * sw[:, None]).T @ X + 1e-9 * np.eye(d)
-            beta[k] = np.linalg.solve(M, X.T @ tgt)
+            try:
+                beta[k] = np.linalg.solve(M, X.T @ tgt)
+            except np.linalg.LinAlgError:              # nearly collinear features: least-squares solution instead
+                beta[k] = np.linalg.lstsq(M, X.T @ tgt, rcond=None)[0]
             if K == 1:
                 info = M
             res = y[:, None] - (X @ beta[k])[:, None] - m[None, :]
@@ -219,7 +222,7 @@ def shrink_static(model: dict, y_fit: np.ndarray) -> dict:
     slopes = beta[1:]
     p = len(slopes)
     info = model["info"]
-    wald = float(slopes @ np.linalg.inv(np.linalg.inv(info)[1:, 1:]) @ slopes) if p else 0.0
+    wald = float(slopes @ np.linalg.pinv(np.linalg.pinv(info)[1:, 1:]) @ slopes) if p else 0.0
     ks = max(0.0, 1.0 - max(p - 2, 1) / wald) if wald > 0 else 0.0
     beta[1:] = ks * slopes
     simple = np.expm1(y_fit)
