@@ -131,3 +131,25 @@ This is the first pooled prediction that holds up on unseen data, at 4-hour bars
 The model learned to keep trends going over 1–3 bars (positive coefficients on the last three moves). The 2023
 validation year has now been looked at for this family. Further choices must not be tuned on it repeatedly: use
 walk-forward inside 2014–2022 for development, and keep 2023 as a check.
+
+### Year-by-year walk-forward inside the train split (`pool_walk.py`)
+
+Same model, learned on all years before Y, predicting year Y (2017–2022; 2023 from the previous table).
+Out-of-sample slopes:
+
+| Bars | 2017 | 2018 | 2019 | 2020 | 2021 | 2022 | 2023 | Positive years |
+|---|---|---|---|---|---|---|---|---|
+| D1 | −0.15 | −0.67 | +1.11 | +0.14 | −0.62 | −0.45 | +0.56 | 3/7 |
+| H4 | −0.03 | −0.12 | +0.05 | +1.15 | +0.32 | −0.07 | +1.22 | 4/7 (strong only in 2020 and 2023) |
+| H1 | n/a | −0.29 | +0.45 | +0.91 | +0.25 | +0.19 | +0.94 | 5/6 |
+
+The 2023 result at 4-hour bars is not a stable edge: it appears only in the two strongest trend years. At hourly bars
+there is a small, fairly consistent continuation effect, with correlations around 0.005–0.012. Its typical
+prediction is about one quarter of the half spread, so it cannot pay for trading. Linear price-pattern inputs at these
+speeds give no edge worth trading after costs.
+
+Remaining sources of return to test next, all learned by the agent itself, with no imposed style:
+
+- the long-run drift of each market, learned over the long history with estimation risk;
+- volatility timing (size by predicted risk);
+- the broker's swap (carry) on held positions.
