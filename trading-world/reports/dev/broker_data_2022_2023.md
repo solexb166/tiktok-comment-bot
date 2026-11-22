@@ -104,3 +104,30 @@ cost is small next to the predicted edge, but one year of training (about 1,900 
 evidence to separate an edge from noise. **The limiting factor at slow speeds is the length of history.** The next data
 step is `scripts/mt5_export_history.py`: H1/H4/D1 bars for as many years as the broker holds. Everything before 2023 is
 inside the frozen train split.
+
+## Long history from the owner's MT5 (H1/H4/D1), pooled edge check (`pool_hist.py`)
+
+The data arrived on 2026-11-22. FX and gold run from 2014-01, bitcoin from 2018-02, Nasdaq from 2019-07, all to
+2026-11. There were no malformed bars. D1 bar spreads are often 0 (a bar records the minimum spread), so costs use the
+median M1 spreads instead. The model learns on 2014–2022 (frozen train split) and predicts 2023 (validation) one bar
+ahead. 2024 and later are never read. Each market's moves are in units of its own recent bar volatility. Inputs are the
+last 3 moves, longer-window moves, the volatility ratio and the clock. The model is ridge (λ = 1), and the standard
+error is a moving-block bootstrap (block 50, 400 resamples).
+
+| Bars | Train / test bars | Out-of-sample slope ± SE (t) | Median pred / half spread (σ units) | By market (slope) |
+|---|---|---|---|---|
+| D1 | 11,754 / 1,911 | +0.56 ± 0.75 (0.7) | 0.034 / 0.009 | BTC +4.4, NAS +1.2, XAU +0.1, FX −0.8 to −1.5 |
+| H4 | 54,010 / 10,159 | **+1.22 ± 0.57 (2.1)** | 0.016 / 0.021 | BTC +3.7, NAS +2.0, XAU +1.8, FX −0.6 to −1.0 |
+| H1 | 202,765 / 39,047 | +0.94 ± 0.49 (1.9) | 0.010 / 0.041 | XAU +1.8, BTC +2.8, EUR +0.9, others ≤ 0.1 |
+
+This is the first pooled prediction that holds up on unseen data, at 4-hour bars. Caveats:
+
+- Three speeds were tested, so t ≈ 2 is weak.
+- The edge comes from bitcoin, Nasdaq and gold, which show short-term continuation. 2023 was a strong trend year for
+  bitcoin and Nasdaq.
+- On FX the 2023 slope is negative.
+- The typical 4-hour prediction is a little below the half spread, so only the stronger predictions are worth trading.
+
+The model learned to keep trends going over 1–3 bars (positive coefficients on the last three moves). The 2023
+validation year has now been looked at for this family. Further choices must not be tuned on it repeatedly: use
+walk-forward inside 2014–2022 for development, and keep 2023 as a check.
