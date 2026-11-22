@@ -56,3 +56,23 @@ No predicted edge held up out of sample, so version 6 stays out and no longer lo
 USD/JPY's 2022 trend, which version 5 rode by luck. The honest state: safe on real data, but with the last three
 hourly returns as its only information it finds no edge in 2022 worth trading. Real opportunities, if any, need richer
 information (time of day, longer horizons, other markets) and more history.
+
+## 4. Version 6 with a multi-timeframe view (owner's suggestion, 2026-11-22)
+
+At each decision the agent also sees (`timeframes.py`; strictly causal, leak-checked):
+- the price move over the last 15 minutes, hour, 4 hours, day and week;
+- hourly and daily volatility;
+- time of day and day of week.
+
+There is no rule about how to use them. Hourly decisions, same learn and trade periods:
+
+| Instrument | Held-out slope (se) | Kept | Result |
+|---|---|---|---|
+| EUR/USD | +0.41 (0.20) | 0.31 | trades, median size 15×; +0.175 per run (+0.74, +0.19, +0.64, −0.87) |
+| USD/JPY | −0.21 (0.10) | 0 | flat |
+| Gold | −0.34 (0.53) | 0 | flat |
+| Nasdaq | −0.32 (0.50) | 0 | flat |
+
+This is the first part of a predicted edge to survive the held-out check, on EUR/USD; without the extra timeframes it
+did not (+0.55 ± 0.62). It is not evidence yet: four test runs, one large loss, and still sizable bets on a weak edge.
+It is to be confirmed on 2023 (validation split) once downloaded.
