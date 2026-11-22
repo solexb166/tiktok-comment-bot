@@ -81,10 +81,10 @@ Fixes found while building it:
 | GBP/USD | −0.226 | −0.046 | 1 (December, 15m, ~2×) |
 | USD/JPY | +0.026 | 0 | 0 |
 | Gold | −0.515 | 0 | 0 |
-| Bitcoin | −0.814 | (running) | |
-| Nasdaq | +0.049 | (running) | |
+| Bitcoin | −0.814 | 0 | 0 |
+| Nasdaq | +0.049 | 0 | 0 |
 
-Version 7 stops the losses, mostly by staying out. It traded 2 of 48 market-months. Most months its replay found a
+Totals: the hourly version −3.26, version 7 +0.40. Version 7 stops the losses, mostly by staying out. It traded 2 of 72 market-months. Most months its replay found a
 speed that grew, but when it relearned on all its history, the forward check rejected the edge. The edges are too weak
 to trust.
 
