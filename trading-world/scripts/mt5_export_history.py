@@ -9,7 +9,9 @@ Writes one file per instrument and bar size:  datasets/mt5_history/<INSTRUMENT>/
   point, an approximation), spread_points, tick_volume
 
 Usage (on the PC with MT5 open and logged in, from the trading-world folder):
-    python scripts/mt5_export_history.py
+    python scripts/mt5_export_history.py              # the six markets, H1/H4/D1
+    python scripts/mt5_export_history.py --universe   # DAILY bars + contract spec for every currency pair, index,
+                                                      # metal, energy and crypto symbol the broker lists (~10-30 MB)
 Then commit and push the new files under datasets/mt5_history (a few MB in total).
 If MT5 returns little history: in MT5, Tools > Options > Charts > "Max bars in chart" = Unlimited, restart MT5, and
 open each symbol's chart on that bar size once (scroll left) so the terminal downloads the history.
@@ -26,6 +28,36 @@ from mt5_export import INSTRUMENTS, ROOT, find_symbol  # noqa: E402
 FRAMES = ("H1", "H4", "D1")
 
 
+def export_universe(mt5, pd, out):
+    """Daily bars and the contract specification for every tradable symbol (no stocks), one folder per symbol."""
+    from mt5_export import SPEC_FIELDS
+    t0, t1 = datetime(1990, 1, 1, tzinfo=timezone.utc), datetime.now(timezone.utc)
+    import json
+    n = 0
+    for info in mt5.symbols_get() or []:
+        path = (getattr(info, "path", "") or "").lower()
+        if any(k in path for k in ("stock", "share", "equit")):
+            continue
+        mt5.symbol_select(info.name, True)
+        rates = mt5.copy_rates_range(info.name, mt5.TIMEFRAME_D1, t0, t1)
+        if rates is None or len(rates) < 250:
+            continue
+        d = out / "universe" / info.name.replace("/", "_")
+        d.mkdir(parents=True, exist_ok=True)
+        df = pd.DataFrame(rates)
+        sp = df["spread"].astype(float) * float(info.point)
+        pd.DataFrame({"time": (df["time"] // 60).astype("int64"), "bid_o": df["open"], "bid_h": df["high"], "bid_l": df["low"],
+                      "bid_c": df["close"], "ask_c": df["close"] + sp, "spread_points": df["spread"].astype("int32"),
+                      "tick_volume": df["tick_volume"].astype("int64")}).to_parquet(d / "D1.parquet", index=False)
+        spec = {f: getattr(info, f) for f in SPEC_FIELDS if hasattr(info, f)}
+        (d / "symbol_info.json").write_text(json.dumps(dict(broker_symbol=info.name, path=getattr(info, "path", ""), spec=spec,
+                                                            exported_at=datetime.now(timezone.utc).isoformat()), indent=1, default=str))
+        n += 1
+        first = datetime.fromtimestamp(int(df["time"].iloc[0]), timezone.utc).date()
+        print(f"{info.name} ({getattr(info, 'path', '')}): {len(df):,} daily bars from {first}")
+    print(f"{n} symbols exported to {out / 'universe'}")
+
+
 def main():
     try:
         import MetaTrader5 as mt5
@@ -35,6 +67,12 @@ def main():
     if not mt5.initialize():
         sys.exit(f"Could not connect to MT5 (is it open and logged in?): {mt5.last_error()}")
     out = ROOT / "datasets" / "mt5_history"
+    if "--universe" in sys.argv:
+        try:
+            export_universe(mt5, pd, out)
+        finally:
+            mt5.shutdown()
+        return
     t0, t1 = datetime(1990, 1, 1, tzinfo=timezone.utc), datetime.now(timezone.utc)
     try:
         for ours, cands in INSTRUMENTS.items():
