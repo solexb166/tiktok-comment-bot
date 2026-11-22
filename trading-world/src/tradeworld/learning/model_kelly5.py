@@ -150,7 +150,8 @@ def _floor_diagonal(A: np.ndarray, min_spell: float) -> np.ndarray:
 
 def fit_regimes(y, X, m, s, pi0, K, c, seed=0, mode="all") -> dict:
     T, d = X.shape
-    labels = np.zeros(T, int) if K == 1 else _init_labels(y, X, K, c["init_block"], seed, mode)
+    block = c["init_block"] if T // c["init_block"] >= 4 * K else max(20, T // (4 * K))   # short histories: smaller stretches
+    labels = np.zeros(T, int) if K == 1 else _init_labels(y, X, K, block, seed, mode)
     beta = np.zeros((K, d))
     cs = np.ones(K)
     pi = np.tile(pi0, (K, 1))
