@@ -76,3 +76,40 @@ There is no rule about how to use them. Hourly decisions, same learn and trade p
 This is the first part of a predicted edge to survive the held-out check, on EUR/USD; without the extra timeframes it
 did not (+0.55 ± 0.62). It is not evidence yet: four test runs, one large loss, and still sizable bets on a weak edge.
 It is to be confirmed on 2023 (validation split) once downloaded.
+
+## 5. Rolling walk-forward, April–October 2022 (`real_roll.py`)
+
+For each month the agent learns from all earlier 2022 data (version 6 with the multi-timeframe view, hourly decisions),
+then trades that month once, as live trading would. That gives 6 instruments × 6–7 months = 41 instrument-months.
+
+| Version | Months traded | Total log growth | Up / down |
+|---|---|---|---|
+| v6, single held-out check on the last 20% (trend tested separately) | 9 | −5.15 | 2 / 7 |
+| v6, single check, whole edge incl. trend tested | 9 | −5.15 | 2 / 7 |
+| v6, forward check (learn to 55/70/85% of history, predict each next stretch, pooled) | 7 | −1.04 | 3 / 4 |
+
+The first run of the single check (trend tested separately) went bust in USD/JPY in May 2022 at 93×; the trend check was
+then rewritten, giving the second row.
+
+Months the forward-check version traded:
+
+| Instrument | Month | Kept | Size | Result |
+|---|---|---|---|---|
+| EUR/USD | Aug | 0.17 | 10× | +0.19 |
+| GBP/USD | Apr | 0.28 | 33× | +1.05 |
+| GBP/USD | Oct | 0.73 | 21× | −1.26 |
+| USD/JPY | Jun | 0.05 | 2× | −0.16 |
+| USD/JPY | Jul | 0.05 | 4× | −0.21 |
+| Nasdaq | May | 0.31 | 4× | −0.93 |
+| Bitcoin | Jun | 0.14 | 1× | +0.27 |
+
+### Conclusions
+
+- **More evidence means fewer bad bets.** The forward check cut losses by about 80% and the agent stays out in 34 of
+  41 months.
+- **No reliable profit yet.** Hourly real prices give no edge that survives honest testing in 2022. A weakly trusted
+  edge can still become a 20–30× bet, because hourly volatility is so small that full growth-optimal sizing turns any
+  edge into large leverage.
+- **Sizing is the decisive risk question before any demo account.**
+- **More history is the binding constraint.** Only 10 months are downloaded; the 2023 validation and 2024–25 test data
+  are not.
